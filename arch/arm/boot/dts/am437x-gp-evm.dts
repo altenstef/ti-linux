@@ -1151,6 +1151,7 @@
 
 &rtc {
         status = "okay";
+	ext-clk-src;
 };
 
 &wkup_m3 {

@@ -13,6 +13,7 @@ Required properties:
 Optional properties:
 - ti,system-power-controller: Telling whether or not rtc is controlling
   the system power.
+- ext-clk-src: Whether the rtc can be sourced by external clock
 
 Example:
 

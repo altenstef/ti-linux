@@ -145,7 +145,6 @@
  * the 32KHz clock to be explicitly enabled.
  */
 #define OMAP_RTC_HAS_32KCLK_EN		BIT(2)
-#define OMAP_RTC_HAS_EXT_32K		BIT(3)
 
 #define SHUTDOWN_TIME_SEC		1
 
@@ -160,6 +159,7 @@ struct omap_rtc_plat_data {
 	void __iomem *base;
 	bool is_power_controller;
 	struct rtc_device *rtc;
+	bool is_ext_rtc;
 };
 
 /* we rely on the rtc framework to handle locking (rtc->ops_lock),
@@ -494,7 +494,7 @@ static struct platform_device_id omap_rtc_devtype[] = {
 	[OMAP_RTC_DATA_AM3352_IDX] = {
 		.name	= "am3352-rtc",
 		.driver_data = OMAP_RTC_HAS_KICKER | OMAP_RTC_HAS_IRQWAKEEN |
-			       OMAP_RTC_HAS_32KCLK_EN | OMAP_RTC_HAS_EXT_32K,
+			       OMAP_RTC_HAS_32KCLK_EN,
 	},
 	[OMAP_RTC_DATA_DA830_IDX] = {
 		.name	= "da830-rtc",
@@ -536,6 +536,8 @@ static int __init omap_rtc_probe(struct platform_device *pdev)
 		pdata->is_power_controller =
 			of_property_read_bool(pdev->dev.of_node,
 					      "ti,system-power-controller");
+		pdata->is_ext_rtc = of_property_read_bool(pdev->dev.of_node,
+							  "ext-clk-src");
 	}
 
 	id_entry = platform_get_device_id(pdev);
@@ -594,7 +596,7 @@ static int __init omap_rtc_probe(struct platform_device *pdev)
 		rtc_writel(OMAP_RTC_OSC_32KCLK_EN, OMAP_RTC_OSC_REG);
 
 	/* Enable External clock as the source */
-	if (id_entry->driver_data & OMAP_RTC_HAS_32KCLK_EN)
+	if (pdata->is_ext_rtc)
 		rtc_writel(OMAP_RTC_OSC_EXT_32K | rtc_read(OMAP_RTC_OSC_REG),
 			   OMAP_RTC_OSC_REG);
 
