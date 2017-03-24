@@ -19,6 +19,7 @@
 
 #include <asm/checksum.h>
 #include <asm/ftrace.h>
+#include <asm/virt.h>
 
 /*
  * libgcc functions - functions that are used internally by the
@@ -174,4 +175,8 @@ EXPORT_SYMBOL(__gnu_mcount_nc);
 #ifdef CONFIG_ARM_PATCH_PHYS_VIRT
 EXPORT_SYMBOL(__pv_phys_pfn_offset);
 EXPORT_SYMBOL(__pv_offset);
+#endif
+
+#ifdef CONFIG_ARM_VIRT_EXT
+EXPORT_SYMBOL_GPL(__boot_cpu_mode);
 #endif
