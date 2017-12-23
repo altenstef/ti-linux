@@ -79,18 +79,21 @@ static inline void lre_cnt_nodes_clear(struct node_tbl *nt)
 {
 	u32 *lre_cnt_nodes = (u32 *)((void *)nt + 192 - 0x3000);
 	*lre_cnt_nodes = 0;
+	nt->lre_cnt = 0;
 }
 
 static inline void lre_cnt_nodes_inc(struct node_tbl *nt)
 {
 	u32 *lre_cnt_nodes = (u32 *)((void *)nt + 192 - 0x3000);
 	*lre_cnt_nodes += 1;
+	nt->lre_cnt++;
 }
 
 static inline void lre_cnt_nodes_dec(struct node_tbl *nt)
 {
 	u32 *lre_cnt_nodes = (u32 *)((void *)nt + 192 - 0x3000);
 	*lre_cnt_nodes -= 1;
+	nt->lre_cnt--;
 }
 
 static inline bool node_expired(struct node_tbl *nt, u16 node, u16 forget_time)
@@ -433,7 +436,8 @@ prueth_new_nt_index_show(struct seq_file *sfp, void *data)
 			cnt_b += IND_BIN_NO(j);
 		}
 
-	seq_printf(sfp, "\nTotal indexes %d; bins %d;\n", cnt_i, cnt_b);
+	seq_printf(sfp, "\nTotal indexes %d; bins %d;  lre_cnt %d\n",
+		   cnt_i, cnt_b, nt->lre_cnt);
 
 	return 0;
 }
@@ -482,7 +486,8 @@ prueth_new_nt_bins_show(struct seq_file *sfp, void *data)
 				   );
 			cnt++;
 		}
-	seq_printf(sfp, "\nTotal valid entries %d\n", cnt);
+	seq_printf(sfp, "\nTotal valid entries %d; lre_cnt %d\n",
+		   cnt, nt->lre_cnt);
 
 	return 0;
 }
