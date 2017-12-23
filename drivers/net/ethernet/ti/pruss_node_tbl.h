@@ -75,7 +75,7 @@ struct node_tbl {
 	struct bin_tbl_t	bin_tbl[BIN_TBL_MAX_ENTRIES];
 	struct node_tbl_t	node_tbl[NODE_TBL_MAX_ENTRIES];
 	u16 next_free_slot;
-	u16 res1;
+	u16 lre_cnt;
 	u8  lock;
 	u8  lock2;
 	u8  res2[2];
