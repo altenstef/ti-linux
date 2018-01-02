@@ -1112,10 +1112,7 @@ prueth_hsr_prp_debugfs_term(struct prueth *prueth)
 	prueth->tr_file = NULL;
 	prueth->error_stats_file = NULL;
 	prueth->root_dir = NULL;
-
-	debugfs_remove(prueth->new_nt_index);
 	prueth->new_nt_index = NULL;
-	debugfs_remove(prueth->new_nt_bins);
 	prueth->new_nt_bins = NULL;
 }
 #else
