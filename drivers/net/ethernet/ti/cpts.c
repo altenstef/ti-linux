@@ -501,9 +501,8 @@ static void cpts_pps_schedule(struct cpts *cpts)
 	unsigned long flags;
 	bool reported;
 
-	cpts_fifo_read(cpts, -1);
-
 	spin_lock_irqsave(&cpts->lock, flags);
+	cpts_fifo_read(cpts, -1);
 	reported = cpts_proc_pps_ts_events(cpts);
 	spin_unlock_irqrestore(&cpts->lock, flags);
 
