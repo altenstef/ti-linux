@@ -15,6 +15,7 @@
 #include <linux/string.h>
 #include <linux/spinlock_types.h>
 #include "pruss_node_tbl.h"
+#include "hsr_prp_firmware.h"
 
 #define IND_BINOFS(x) nt->index_tbl[x].bin_offset
 #define IND_BIN_NO(x) nt->index_tbl[x].bin_no_entries
@@ -77,21 +78,24 @@ int node_table_insert(struct prueth *prueth, u8 *mac, int port, int sv_frame,
 
 static inline void lre_cnt_nodes_clear(struct node_tbl *nt)
 {
-	u32 *lre_cnt_nodes = (u32 *)((void *)nt + 192 - 0x3000);
+	u32 *lre_cnt_nodes = (u32 *)((void *)nt + LRE_CNT_NODES -
+				     NODE_TABLE_NEW);
 	*lre_cnt_nodes = 0;
 	nt->lre_cnt = 0;
 }
 
 static inline void lre_cnt_nodes_inc(struct node_tbl *nt)
 {
-	u32 *lre_cnt_nodes = (u32 *)((void *)nt + 192 - 0x3000);
+	u32 *lre_cnt_nodes = (u32 *)((void *)nt + LRE_CNT_NODES -
+				     NODE_TABLE_NEW);
 	*lre_cnt_nodes += 1;
 	nt->lre_cnt++;
 }
 
 static inline void lre_cnt_nodes_dec(struct node_tbl *nt)
 {
-	u32 *lre_cnt_nodes = (u32 *)((void *)nt + 192 - 0x3000);
+	u32 *lre_cnt_nodes = (u32 *)((void *)nt + LRE_CNT_NODES -
+				     NODE_TABLE_NEW);
 	*lre_cnt_nodes -= 1;
 	nt->lre_cnt--;
 }
