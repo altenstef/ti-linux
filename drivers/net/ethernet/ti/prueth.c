@@ -2338,7 +2338,7 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 		if (PRUETH_HAS_PRP(prueth)) {
 			memcpy(macid,
 			       ((pkt_info.sv_frame) ? nt_dst_addr + 20 :
-				src_addr),
+				nt_dst_addr + 6),
 			       6);
 
 			node_table_insert(prueth, macid, emac->port_id,
