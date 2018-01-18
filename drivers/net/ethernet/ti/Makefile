@@ -31,3 +31,4 @@ keystone_netcp_sa-y := netcp_sa.o
 
 obj-$(CONFIG_TI_PRUETH) += ti_prueth.o
 ti_prueth-y := prueth.o iep.o pruss_node_tbl.o
+ti_prueth-$(CONFIG_DEBUG_FS) += prueth_dbgfs.o
