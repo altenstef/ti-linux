@@ -423,7 +423,7 @@ void pop_queue_process(struct prueth *prueth, spinlock_t *lock)
 
 /* indexes */
 static int
-prueth_new_nt_index_show(struct seq_file *sfp, void *data)
+prueth_nt_index_show(struct seq_file *sfp, void *data)
 {
 	struct node_tbl *nt = (struct node_tbl *)sfp->private;
 	int j;
@@ -446,15 +446,15 @@ prueth_new_nt_index_show(struct seq_file *sfp, void *data)
 }
 
 static int
-prueth_new_nt_index_open(struct inode *inode, struct file *filp)
+prueth_nt_index_open(struct inode *inode, struct file *filp)
 {
-	return single_open(filp, prueth_new_nt_index_show,
+	return single_open(filp, prueth_nt_index_show,
 			   inode->i_private);
 }
 
-const struct file_operations prueth_new_nt_index_fops = {
+const struct file_operations prueth_nt_index_fops = {
 	.owner	= THIS_MODULE,
-	.open	= prueth_new_nt_index_open,
+	.open	= prueth_nt_index_open,
 	.read	= seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
@@ -462,7 +462,7 @@ const struct file_operations prueth_new_nt_index_fops = {
 
 /* bins */
 static int
-prueth_new_nt_bins_show(struct seq_file *sfp, void *data)
+prueth_nt_bins_show(struct seq_file *sfp, void *data)
 {
 	struct node_tbl *nt = (struct node_tbl *)sfp->private;
 	int j, o;
@@ -496,15 +496,15 @@ prueth_new_nt_bins_show(struct seq_file *sfp, void *data)
 }
 
 static int
-prueth_new_nt_bins_open(struct inode *inode, struct file *filp)
+prueth_nt_bins_open(struct inode *inode, struct file *filp)
 {
-	return single_open(filp, prueth_new_nt_bins_show,
+	return single_open(filp, prueth_nt_bins_show,
 			   inode->i_private);
 }
 
-const struct file_operations prueth_new_nt_bins_fops = {
+const struct file_operations prueth_nt_bins_fops = {
 	.owner	= THIS_MODULE,
-	.open	= prueth_new_nt_bins_open,
+	.open	= prueth_nt_bins_open,
 	.read	= seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
