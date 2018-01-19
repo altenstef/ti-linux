@@ -587,8 +587,8 @@ struct prueth {
 	struct dentry *dd_file;
 	struct dentry *tr_file;
 	struct dentry *error_stats_file;
-	struct dentry *new_nt_index;
-	struct dentry *new_nt_bins;
+	struct dentry *nt_index;
+	struct dentry *nt_bins;
 #endif
 	struct node_tbl	*nt;
 	struct nt_queue_t *mac_queue;

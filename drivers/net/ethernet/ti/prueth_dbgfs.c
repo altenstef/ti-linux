@@ -831,23 +831,23 @@ int prueth_hsr_prp_debugfs_init(struct prueth *prueth)
 	}
 	prueth->error_stats_file = de;
 
-	de = debugfs_create_file("new_nt_index", S_IFREG | 0444,
+	de = debugfs_create_file("nt_index", S_IFREG | 0444,
 				 prueth->root_dir, prueth->nt,
-				 &prueth_new_nt_index_fops);
+				 &prueth_nt_index_fops);
 	if (!de) {
-		dev_err(dev, "Cannot create new_nt_index file\n");
+		dev_err(dev, "Cannot create nt_index file\n");
 		return rc;
 	}
-	prueth->new_nt_index = de;
+	prueth->nt_index = de;
 
-	de = debugfs_create_file("new_nt_bins", S_IFREG | 0444,
+	de = debugfs_create_file("nt_bins", S_IFREG | 0444,
 				 prueth->root_dir, prueth->nt,
-				 &prueth_new_nt_bins_fops);
+				 &prueth_nt_bins_fops);
 	if (!de) {
-		dev_err(dev, "Cannot create new_nt_indexes file\n");
+		dev_err(dev, "Cannot create nt_indexes file\n");
 		return rc;
 	}
-	prueth->new_nt_bins = de;
+	prueth->nt_bins = de;
 
 	return 0;
 }
@@ -893,7 +893,7 @@ prueth_hsr_prp_debugfs_term(struct prueth *prueth)
 	prueth->tr_file = NULL;
 	prueth->error_stats_file = NULL;
 	prueth->root_dir = NULL;
-	prueth->new_nt_index = NULL;
-	prueth->new_nt_bins = NULL;
+	prueth->nt_index = NULL;
+	prueth->nt_bins = NULL;
 }
 #endif

@@ -104,7 +104,7 @@ int node_table_insert(struct prueth *prueth, u8 *mac, int port, int sv_frame,
 
 void pop_queue_process(struct prueth *prueth, spinlock_t *lock);
 
-extern const struct file_operations prueth_new_nt_index_fops;
-extern const struct file_operations prueth_new_nt_bins_fops;
+extern const struct file_operations prueth_nt_index_fops;
+extern const struct file_operations prueth_nt_bins_fops;
 
 #endif /* __NET_TI_PRUSS_NODE_TBL_H */
