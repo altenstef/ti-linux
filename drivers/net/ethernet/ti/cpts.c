@@ -432,6 +432,9 @@ static int cpts_pps_enable(struct cpts *cpts, int on)
 {
 	on = (on? 1 : 0);
 
+	if ((cpts->pps_enable == -1) && (on == 0))
+		return 0;
+
 	if (cpts->pps_enable == on)
 		return 0;
 
@@ -452,6 +455,9 @@ static int cpts_pps_enable(struct cpts *cpts, int on)
 static int cpts_ref_enable(struct cpts *cpts, int on)
 {
 	on = (on ? 1 : 0);
+
+	if ((cpts->ref_enable == -1) && (on == 0))
+		return 0;
 
 	if (cpts->ref_enable == on)
 		return 0;
