@@ -593,6 +593,8 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-cl-som-am57x.dtb \
 	am57xx-sbc-am57x.dtb \
 	am572x-idk.dtb \
+	am572x-idk-jailhouse.dtb \
+	am572x-evm-jailhouse.dtb \
 	am572x-idk-lcd-osd101t2045.dtb \
 	am572x-idk-lcd-osd101t2587.dtb \
 	am574x-idk.dtb \
