@@ -22,6 +22,9 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
+#ifdef CONFIG_PREEMPT_RT_FULL
+#include <linux/swork.h>
+#endif
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -241,7 +244,7 @@ static int pruptp_proc_tx_ts(struct prueth_emac *emac,
 	return 0;
 }
 
-static void pruptp_tx_ts_work(struct prueth_emac *emac)
+static void _pruptp_tx_ts_work(struct prueth_emac *emac)
 {
 	struct prueth *prueth = emac->prueth;
 	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
@@ -284,6 +287,62 @@ static void pruptp_tx_ts_work(struct prueth_emac *emac)
 				  ts_notify_mask);
 	}
 }
+
+#ifdef CONFIG_PREEMPT_RT_FULL
+static void pruptp_tx_ts_work(struct swork_event *event)
+{
+	struct prueth_emac *emac =
+		container_of(event, struct prueth_emac, ptp_tx_work_event);
+
+	_pruptp_tx_ts_work(emac);
+}
+
+static void prueth_queue_ptp_tx_work(struct prueth_emac *emac)
+{
+	swork_queue(&emac->ptp_tx_work_event);
+}
+
+static void prueth_init_ptp_tx_work(struct prueth_emac *emac)
+{
+	WARN_ON(swork_get());
+	INIT_SWORK(&emac->ptp_tx_work_event, pruptp_tx_ts_work);
+}
+
+static void prueth_cancel_ptp_tx_work(struct prueth_emac *emac) { }
+
+static void prueth_clean_ptp_tx_work(void)
+{
+	swork_put();
+}
+
+#else /* !CONFIG_PREEMPT_RT_FULL */
+
+static void pruptp_tx_ts_work(struct work_struct *event)
+{
+	struct prueth_emac *emac =
+		container_of(event, struct prueth_emac, ptp_tx_work_event);
+
+	_pruptp_tx_ts_work(emac);
+}
+
+static void prueth_queue_ptp_tx_work(struct prueth_emac *emac)
+{
+	schedule_work(&emac->ptp_tx_work_event);
+}
+
+static void prueth_init_ptp_tx_work(struct prueth_emac *emac)
+{
+	INIT_WORK(&emac->ptp_tx_work_event, pruptp_tx_ts_work);
+}
+
+static void prueth_cancel_ptp_tx_work(struct prueth_emac *emac)
+{
+	cancel_work_sync(&emac->ptp_tx_work_event);
+}
+
+static void prueth_clean_ptp_tx_work(void) { }
+
+#endif /* !CONFIG_PREEMPT_RT_FULL */
 
 static int pruptp_rx_timestamp(struct prueth_emac *emac, struct sk_buff *skb)
 {
@@ -1149,7 +1208,7 @@ static irqreturn_t emac_tx_hardirq(int irq, void *dev_id)
 		netif_wake_queue(ndev);
 
 	if (PRUETH_HAS_PTP(emac->prueth) && emac_is_ptp_tx_enabled(emac))
-		pruptp_tx_ts_work(emac);
+		prueth_queue_ptp_tx_work(emac);
 
 	return IRQ_HANDLED;
 }
@@ -2493,8 +2552,8 @@ static int emac_ndo_open(struct net_device *ndev)
 	 * conditional to non switch case
 	 */
 	if (!PRUETH_HAS_SWITCH(prueth)) {
-		ret = request_irq(emac->tx_irq, emac_tx_hardirq, flags,
-				  ndev->name, ndev);
+		ret = request_irq(emac->tx_irq, emac_tx_hardirq,
+				  flags, ndev->name, ndev);
 		if (ret) {
 			netdev_err(ndev, "unable to request TX IRQ\n");
 			goto free_rx_irq;
@@ -2502,7 +2561,8 @@ static int emac_ndo_open(struct net_device *ndev)
 	}
 
 	if (PRUETH_HAS_PTP(prueth) && emac->ptp_tx_irq > 0) {
-		ret = request_irq(emac->ptp_tx_irq, emac_tx_hardirq, flags,
+		ret = request_irq(emac->ptp_tx_irq,
+				  emac_tx_hardirq, flags,
 				  ndev->name, ndev);
 		if (ret) {
 			netdev_err(ndev, "unable to request PTP TX IRQ\n");
@@ -2575,6 +2635,9 @@ static int emac_ndo_open(struct net_device *ndev)
 		}
 	}
 
+	if (PRUETH_HAS_PTP(prueth))
+		prueth_init_ptp_tx_work(emac);
+
 	/* reset and start PRU firmware */
 	if (PRUETH_HAS_SWITCH(prueth))
 		prueth_sw_emac_config(prueth, emac);
@@ -2642,6 +2705,7 @@ static int sw_emac_pru_stop(struct prueth_emac *emac, struct net_device *ndev)
 	if (PRUETH_HAS_PTP(prueth) && emac->ptp_tx_irq > 0) {
 		disable_irq(emac->ptp_tx_irq);
 		free_irq(emac->ptp_tx_irq, emac->ndev);
+		prueth_cancel_ptp_tx_work(emac);
 	}
 
 	/* another emac is still in use, don't stop the PRUs */
@@ -2739,6 +2803,8 @@ static int emac_ndo_stop(struct net_device *ndev)
 
 	if (PRUETH_HAS_PTP(prueth) && !prueth->emac_configured)
 		iep_unregister(prueth->iep);
+	if (PRUETH_HAS_PTP(prueth))
+		prueth_clean_ptp_tx_work();
 
 	mutex_unlock(&prueth->mlock);
 
