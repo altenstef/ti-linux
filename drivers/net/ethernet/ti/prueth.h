@@ -457,6 +457,11 @@ struct prueth_emac {
 	struct prueth_queue_desc __iomem *tx_colq_descs;
 
 	unsigned int prp_emac_mode;
+#ifdef CONFIG_PREEMPT_RT_FULL
+	struct swork_event ptp_tx_work_event;
+#else
+	struct work_struct ptp_tx_work_event;
+#endif
 	struct port_statistics stats; /* stats holder when i/f is down */
 	u32 tx_collisions;
 	u32 tx_collision_drops;
