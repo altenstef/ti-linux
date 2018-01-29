@@ -39,15 +39,19 @@ static u16 get_hash(u8 *mac)
 	return hash;
 }
 
-/* TODO: ??? 2 PRUs can use the same lock2 */
-static void get_lock(struct node_tbl *nt)
+static void pru_spin_lock(struct node_tbl *nt)
 {
 	while (1) {
-		nt->lock = 1;
-		if (!nt->lock2)
+		nt->arm_lock = 1;
+		if (!nt->fw_lock)
 			break;
-		nt->lock = 0;
+		nt->arm_lock = 0;
 	}
+}
+
+static inline void pru_spin_unlock(struct node_tbl *nt)
+{
+	nt->arm_lock = 0;
 }
 
 int node_table_insert(struct prueth *prueth, u8 *mac, int port, int sv_frame,
@@ -228,7 +232,7 @@ static void move_up(u16 start, u16 end, struct node_tbl *nt,
 {
 	u16 j = end;
 
-	get_lock(nt);
+	pru_spin_lock(nt);
 
 	for (; j < start; j++)
 		memcpy(&nt->bin_tbl[j], &nt->bin_tbl[j + 1],
@@ -239,7 +243,7 @@ static void move_up(u16 start, u16 end, struct node_tbl *nt,
 	if (update)
 		update_indexes(end, start + 1, nt);
 
-	nt->lock = 0;
+	pru_spin_unlock(nt);
 }
 
 /* start < end */
@@ -248,7 +252,7 @@ static void move_down(u16 start, u16 end, struct node_tbl *nt,
 {
 	u16 j = end;
 
-	get_lock(nt);
+	pru_spin_lock(nt);
 
 	for (; j > start; j--)
 		memcpy(&nt->bin_tbl[j], &nt->bin_tbl[j - 1],
@@ -259,7 +263,7 @@ static void move_down(u16 start, u16 end, struct node_tbl *nt,
 	if (update)
 		update_indexes(start + 1, end, nt);
 
-	nt->lock = 0;
+	pru_spin_unlock(nt);
 }
 
 static int node_table_insert_from_queue(struct node_tbl *nt,
