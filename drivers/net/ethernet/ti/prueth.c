@@ -44,7 +44,7 @@
 #include "hsr_prp_firmware.h"
 #include "iep.h"
 #include "prueth_dbgfs.h"
-#include "pruss_node_tbl.h"
+#include "prueth_node_tbl.h"
 
 #define PRUETH_MODULE_VERSION "0.2"
 #define PRUETH_MODULE_DESCRIPTION "PRUSS Ethernet driver"

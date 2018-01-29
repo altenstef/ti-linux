@@ -15,7 +15,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/etherdevice.h>
-#include "pruss_node_tbl.h"
+#include "prueth_node_tbl.h"
 #include "hsr_prp_firmware.h"
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)

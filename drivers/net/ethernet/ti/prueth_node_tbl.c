@@ -14,7 +14,7 @@
 #include <linux/debugfs.h>
 #include <linux/string.h>
 #include <linux/spinlock_types.h>
-#include "pruss_node_tbl.h"
+#include "prueth_node_tbl.h"
 #include "hsr_prp_firmware.h"
 
 #define IND_BINOFS(x) nt->index_tbl[x].bin_offset
@@ -356,7 +356,6 @@ static int node_table_insert_from_queue(struct node_tbl *nt,
 	return RED_OK;
 }
 
-
 void node_table_check_and_remove(struct node_tbl *nt, u16 forget_time)
 {
 	int j, end_bin;
@@ -402,7 +401,7 @@ static int pop_queue(struct prueth *prueth, spinlock_t *lock)
 	if (!q->full && (q->wr_ind == q->rd_ind)) { /* queue empty */
 		ret = 1;
 	} else {
-		memcpy(&one_mac, &(q->nt_queue[q->rd_ind]),
+		memcpy(&one_mac, &q->nt_queue[q->rd_ind],
 		       sizeof(struct nt_queue_entry));
 		spin_unlock_irqrestore(lock, flags);
 		node_table_insert_from_queue(nt, &one_mac);
