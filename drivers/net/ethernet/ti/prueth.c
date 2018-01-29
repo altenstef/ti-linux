@@ -1036,10 +1036,13 @@ static enum hrtimer_restart prueth_red_table_timer(struct hrtimer *timer)
 		return HRTIMER_RESTART;
 
 	if (prueth->node_table_clear) {
+		pru_spin_lock(prueth->nt);
 		spin_lock_irqsave(&prueth->nt_lock, flags);
 		node_table_init(prueth);
 		spin_unlock_irqrestore(&prueth->nt_lock, flags);
-
+		/* we don't have to release the prueth lock
+		 * the note_table_init() cleares it anyway
+		 */
 		prueth->node_table_clear = 0;
 	} else {
 		prueth->tbl_check_mask &= ~HOST_TIMER_NODE_TABLE_CLEAR_BIT;

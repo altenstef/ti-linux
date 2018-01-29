@@ -97,6 +97,7 @@ int node_table_insert(struct prueth *prueth, u8 *mac, int port, int sv_frame,
 		      int proto, spinlock_t *lock);
 
 void pop_queue_process(struct prueth *prueth, spinlock_t *lock);
+void pru_spin_lock(struct node_tbl *nt);
 
 extern const struct file_operations prueth_nt_index_fops;
 extern const struct file_operations prueth_nt_bins_fops;
