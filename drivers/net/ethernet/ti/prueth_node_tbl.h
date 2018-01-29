@@ -76,9 +76,11 @@ struct node_tbl {
 	struct node_tbl_t	node_tbl[NODE_TBL_MAX_ENTRIES];
 	u16 next_free_slot;
 	u16 lre_cnt;
-	u8  lock;
-	u8  lock2;
-	u8  res2[2];
+	u8  arm_lock;
+	u8  res;
+	u16 fw_lock; /* firmware use this field as 2 independent bytes
+		      * first byte for PRU0, second for PRU1
+		      */
 } __packed;
 
 /* NT queue definitions */
