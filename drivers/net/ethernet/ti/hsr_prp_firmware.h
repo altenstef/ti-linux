@@ -181,7 +181,6 @@
 #define LRE_CNT_ERRORS_B                       (LRE_START + 44)
 #define LRE_CNT_ERRORS_C                       (LRE_START + 48)
 /* Number of active nodes in the node table */
-#define LRE_CNT_NODES                          (LRE_START + 52)
 #define LRE_CNT_PROXY_NODES                    (LRE_START + 56)
 /* Number of entries in the duplicate detection mechanism on
  * port A/B/C for which no duplicate was received.

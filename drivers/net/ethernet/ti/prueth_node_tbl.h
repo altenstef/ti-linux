@@ -32,14 +32,6 @@
 #define RED_OK	0
 #define RED_ERR	-1
 
-#define NT_REM_NODE_TYPE_SANA         0x01 /* Node entry type of : SANA */
-#define NT_REM_NODE_TYPE_SANB         0x02 /* Node entry type of : SANB */
-#define NT_REM_NODE_TYPE_SANAB        0x03 /* Node entry type of : SANAB */
-#define NT_REM_NODE_TYPE_DAN          0x04 /* Node entry type of : DAN */
-#define NT_REM_NODE_TYPE_REDBOX       0x08 /* Node entry type of : REDBOX */
-#define NT_REM_NODE_TYPE_VDAN         0x10 /* Node entry type of : VDAN */
-#define NT_REM_NODE_HSR_BIT           0x20 /*  if set node is HSR */
-
 #define MAC_QUEUE_MAX_SHIFT 6
 #define MAC_QUEUE_MAX (1 << MAC_QUEUE_MAX_SHIFT)
 
