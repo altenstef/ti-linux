@@ -80,30 +80,6 @@ int node_table_insert(struct prueth *prueth, u8 *mac, int port, int sv_frame,
 	return ret;
 }
 
-static inline void lre_cnt_nodes_clear(struct node_tbl *nt)
-{
-	u32 *lre_cnt_nodes = (u32 *)((void *)nt + LRE_CNT_NODES -
-				     NODE_TABLE_NEW);
-	*lre_cnt_nodes = 0;
-	nt->lre_cnt = 0;
-}
-
-static inline void lre_cnt_nodes_inc(struct node_tbl *nt)
-{
-	u32 *lre_cnt_nodes = (u32 *)((void *)nt + LRE_CNT_NODES -
-				     NODE_TABLE_NEW);
-	*lre_cnt_nodes += 1;
-	nt->lre_cnt++;
-}
-
-static inline void lre_cnt_nodes_dec(struct node_tbl *nt)
-{
-	u32 *lre_cnt_nodes = (u32 *)((void *)nt + LRE_CNT_NODES -
-				     NODE_TABLE_NEW);
-	*lre_cnt_nodes -= 1;
-	nt->lre_cnt--;
-}
-
 static inline bool node_expired(struct node_tbl *nt, u16 node, u16 forget_time)
 {
 	return ((nt->node_tbl[node].time_last_seen_s > forget_time ||
@@ -118,7 +94,6 @@ void node_table_init(struct prueth *prueth)
 	struct node_tbl *nt = prueth->nt;
 	struct nt_queue_t *q = prueth->mac_queue;
 
-	lre_cnt_nodes_clear(nt);
 	memset(nt, 0, sizeof(struct node_tbl));
 
 	for (j = 0; j < INDEX_TBL_MAX_ENTRIES; j++)
@@ -354,7 +329,7 @@ static int node_table_insert_from_queue(struct node_tbl *nt,
 		write2node_slot(nt, free_node, entry->port_id, entry->sv_frame,
 				entry->proto);
 
-		lre_cnt_nodes_inc(nt);
+		nt->lre_cnt++;
 	}
 
 	return RED_OK;
@@ -387,7 +362,7 @@ void node_table_check_and_remove(struct node_tbl *nt, u16 forget_time)
 			nt->node_tbl[node].entry_state = NODE_FREE;
 			BIN_NODEOFS(end_bin) = NODE_TBL_MAX_ENTRIES;
 
-			lre_cnt_nodes_dec(nt);
+			nt->lre_cnt--;
 		}
 	}
 }
