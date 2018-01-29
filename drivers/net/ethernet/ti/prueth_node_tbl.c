@@ -39,7 +39,7 @@ static u16 get_hash(u8 *mac)
 	return hash;
 }
 
-static void pru_spin_lock(struct node_tbl *nt)
+void pru_spin_lock(struct node_tbl *nt)
 {
 	while (1) {
 		nt->arm_lock = 1;
