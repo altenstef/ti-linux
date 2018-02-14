@@ -228,6 +228,19 @@
 #define IEC62439_CONST_TRANSPARENT_RECEPTION_REMOVE_RCT 0x01
 #define IEC62439_CONST_TRANSPARENT_RECEPTION_PASS_RCT   0x02
 
+#define M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT         0x2E0
+/* one byte field :
+ * 0 -> multicast filtering disabled
+ * 1 -> multicast filtering enabled
+ */
+#define MULTICAST_FILTER_DISABLED                       0x00
+#define MULTICAST_FILTER_ENABLED                        0x01
+#define MULTICAST_FILTER_MASK                           0x2E4
+#define MULTICAST_FILTER_TABLE                          0x300
+#define MULTICAST_TABLE_SIZE                            256
+#define MULTICAST_FILTER_HOST_RCV_ALLOWED               0x01
+#define MULTICAST_FILTER_HOST_RCV_NOT_ALLOWED           0x00
+
 /* Index array : contiguous 1 byte size entries
  * (max 128 entries + 2 guard values at 0x1E0 (first byte)
  * and 0x262 (last byte)

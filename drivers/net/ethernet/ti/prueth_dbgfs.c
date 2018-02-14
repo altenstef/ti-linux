@@ -306,6 +306,65 @@ static const struct file_operations prueth_hsr_prp_node_table_fops = {
 	.release = single_release,
 };
 
+/* prueth_hsr_prp_mc_filter_show - Formats and prints mc_filter entries
+ */
+static int
+prueth_hsr_prp_mc_filter_show(struct seq_file *sfp, void *data)
+{
+	struct prueth *prueth = (struct prueth *)sfp->private;
+	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+	u8 val;
+	int i;
+
+	val = readb(sram + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
+
+	seq_printf(sfp, "MC Filter : %s", val ? "enabled\n" : "disabled\n");
+	seq_puts(sfp, "MC Mask : ");
+	for (i = 0; i < 6; i++) {
+		val = readb(sram + MULTICAST_FILTER_MASK + i);
+		if (i == 5)
+			seq_printf(sfp, "%x", val);
+		else
+			seq_printf(sfp, "%x:", val);
+	}
+	seq_puts(sfp, "\n");
+
+	val = readb(sram + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
+	seq_puts(sfp, "MC Filter table below 1 - Allowed, 0 - Dropped\n");
+
+	if (val) {
+		for (i = 0; i < MULTICAST_TABLE_SIZE; i++) {
+			val = readb(sram + MULTICAST_FILTER_TABLE + i);
+			if (!(i % 16))
+				seq_printf(sfp, "\n%3x: ", i);
+			seq_printf(sfp, "%d ", val);
+		}
+	}
+	seq_puts(sfp, "\n");
+
+	return 0;
+}
+
+/* prueth_hsr_prp_mc_filter_open - Open the mc_filter file
+ *
+ * Description:
+ * This routine opens a debugfs file mc_filter of specific hsr
+ * or prp device
+ */
+static int
+prueth_hsr_prp_mc_filter_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, prueth_hsr_prp_mc_filter_show,
+			   inode->i_private);
+}
+
+static const struct file_operations prueth_hsr_prp_mc_filter_fops = {
+	.owner	= THIS_MODULE,
+	.open	= prueth_hsr_prp_mc_filter_open,
+	.read	= seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 /* prueth_hsr_prp_nt_clear_write - write the user provided value to
  * node_table_clear debugfs file
  */
@@ -705,6 +764,15 @@ int prueth_hsr_prp_debugfs_init(struct prueth *prueth)
 	}
 	prueth->node_tbl_file = de;
 
+	de = debugfs_create_file("mc_filter", S_IFREG | 0444,
+				 prueth->root_dir, prueth,
+				 &prueth_hsr_prp_mc_filter_fops);
+	if (!de) {
+		dev_err(dev, "Cannot create hsr-prp mc_filter file\n");
+		return rc;
+	}
+	prueth->mc_filter_file = de;
+
 	de = debugfs_create_file("node_table_clear", 0644,
 				 prueth->root_dir, prueth,
 				 &prueth_hsr_prp_nt_clear_fops);
@@ -818,6 +886,7 @@ prueth_hsr_prp_debugfs_term(struct prueth *prueth)
 	debugfs_remove_recursive(prueth->root_dir);
 	prueth->node_tbl_file = NULL;
 	prueth->nt_clear_file = NULL;
+	prueth->mc_filter_file = NULL;
 	prueth->hsr_mode_file = NULL;
 	prueth->dlrmt_file = NULL;
 	prueth->dd_file = NULL;
