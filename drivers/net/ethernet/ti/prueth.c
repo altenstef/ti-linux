@@ -1524,18 +1524,17 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	}
 
 	if (!pkt_info.sv_frame) {
+		skb_put(skb, pkt_info.length);
 
-	skb_put(skb, pkt_info.length);
+		if (PRUETH_HAS_PTP(emac->prueth))
+			pruptp_rx_timestamp(emac, skb);
 
-	if (PRUETH_HAS_PTP(emac->prueth))
-		pruptp_rx_timestamp(emac, skb);
-
-	/* send packet up the stack */
-	skb->protocol = eth_type_trans(skb, ndev);
-	netif_rx(skb);
-
-	} else
+		/* send packet up the stack */
+		skb->protocol = eth_type_trans(skb, ndev);
+		netif_rx(skb);
+	} else {
 		dev_kfree_skb_any(skb);
+	}
 
 	/* update stats */
 	ndev->stats.rx_bytes += pkt_info.length;
