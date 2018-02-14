@@ -79,6 +79,19 @@ static int pruss2_hsr_mode = MODEH;
 module_param(pruss2_hsr_mode, int, 0444);
 MODULE_PARM_DESC(pruss2_hsr_mode, "Choose PRUSS2 HSR mode");
 
+#define PRUETH_DEFAULT_MC_MASK "FF:FF:FF:FF:FF:FF"
+static char *pruss0_mc_mask = PRUETH_DEFAULT_MC_MASK;
+module_param(pruss0_mc_mask, charp, 0444);
+MODULE_PARM_DESC(pruss0_mc_mask, "Choose pruss0 MC mask");
+
+static char *pruss1_mc_mask = PRUETH_DEFAULT_MC_MASK;
+module_param(pruss1_mc_mask, charp, 0444);
+MODULE_PARM_DESC(pruss1_mc_mask, "Choose pruss1 MC mask");
+
+static char *pruss2_mc_mask = PRUETH_DEFAULT_MC_MASK;
+module_param(pruss2_mc_mask, charp, 0444);
+MODULE_PARM_DESC(pruss2_mc_mask, "Choose pruss2 MC mask");
+
 static inline u32 prueth_read_reg(struct prueth *prueth,
 				  enum prueth_mem region,
 				  unsigned int reg)
@@ -2943,6 +2956,52 @@ static int emac_ndo_set_features(struct net_device *ndev,
 	return 0;
 }
 
+static u8 get_hash_with_mask(u8 *mac, u8 *mask)
+{
+	int j;
+	u8 hash;
+
+	for (j = 0, hash = 0; j < ETHER_ADDR_LEN; j++)
+		hash ^= (mac[j] & mask[j]);
+
+	return hash;
+}
+
+static void prueth_sw_set_rx_mode(struct prueth_emac *emac)
+{
+	struct prueth *prueth = emac->prueth;
+	struct net_device *ndev = emac->ndev;
+	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+	struct netdev_hw_addr *ha;
+	u8 hash;
+	int i;
+
+	for (i = 0; i < 6; i++)
+		writeb(prueth->sw_mc_mac_mask[i],
+		       sram + MULTICAST_FILTER_MASK + i);
+
+	if (ndev->flags & IFF_ALLMULTI) {
+		writeb(MULTICAST_FILTER_DISABLED,
+		       sram + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
+		return;
+	}
+
+	/* disable all multicast hash table entries */
+	memset_io(sram + MULTICAST_FILTER_TABLE, 0, MULTICAST_TABLE_SIZE);
+
+	writeb(MULTICAST_FILTER_ENABLED,
+	       sram + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
+
+	if (netdev_mc_empty(ndev))
+		return;
+
+	netdev_for_each_mc_addr(ha, ndev) {
+		hash = get_hash_with_mask(ha->addr, prueth->sw_mc_mac_mask);
+		writeb(MULTICAST_FILTER_HOST_RCV_ALLOWED,
+		       sram + MULTICAST_FILTER_TABLE + hash);
+	}
+}
+
 /**
  * emac_ndo_set_rx_mode - EMAC set receive mode function
  * @ndev: The EMAC network adapter
@@ -2957,6 +3016,9 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 	struct prueth_mmap_sram_cfg *s = &prueth->mmap_sram_cfg;
 	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
 	u32 reg, mask;
+
+	if (PRUETH_HAS_RED(prueth))
+		return prueth_sw_set_rx_mode(emac);
 
 	if (PRUETH_HAS_SWITCH(prueth)) {
 		netdev_dbg(ndev,
@@ -3533,6 +3595,26 @@ static void prueth_netdev_exit(struct prueth *prueth,
 
 static const struct of_device_id prueth_dt_match[];
 
+static void prueth_get_mc_mac_mask(struct prueth *prueth, char *mc_mask)
+{
+	int result = sscanf(mc_mask, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+			    &prueth->sw_mc_mac_mask[0],
+			    &prueth->sw_mc_mac_mask[1],
+			    &prueth->sw_mc_mac_mask[2],
+			    &prueth->sw_mc_mac_mask[3],
+			    &prueth->sw_mc_mac_mask[4],
+			    &prueth->sw_mc_mac_mask[5]);
+
+	if (result == 6)
+		return;
+
+	dev_err(prueth->dev,
+		"Error in prueth mc mask in bootargs %s\n",
+		mc_mask);
+	/* assign default mask */
+	memset(&prueth->sw_mc_mac_mask[0], 0xff, ETH_ALEN);
+}
+
 static int prueth_probe(struct platform_device *pdev)
 {
 	struct prueth *prueth;
@@ -3542,6 +3624,7 @@ static int prueth_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	struct pruss *pruss;
 	int pruss_id1, pruss_id2, ethtype1, ethtype2, hsr_mode1, hsr_mode2;
+	char *mc_mask1, *mc_mask2;
 	int i, ret;
 
 	if (!np)
@@ -3614,6 +3697,8 @@ static int prueth_probe(struct platform_device *pdev)
 		ethtype2 = pruss2_ethtype;
 		hsr_mode1 = pruss1_hsr_mode;
 		hsr_mode2 = pruss2_hsr_mode;
+		mc_mask1 = pruss1_mc_mask;
+		mc_mask2 = pruss2_mc_mask;
 	} else {
 		pruss_id1 = PRUSS0;
 		pruss_id2 = PRUSS1;
@@ -3621,17 +3706,31 @@ static int prueth_probe(struct platform_device *pdev)
 		ethtype2 = pruss1_ethtype;
 		hsr_mode1 = pruss0_hsr_mode;
 		hsr_mode2 = pruss1_hsr_mode;
+		mc_mask1 = pruss0_mc_mask;
+		mc_mask2 = pruss1_mc_mask;
 	}
 
 	if (prueth->pruss_id == pruss_id1) {
 		prueth->eth_type = ethtype1;
 		if (PRUETH_HAS_HSR(prueth))
 			prueth->hsr_mode = hsr_mode1;
+		if (PRUETH_HAS_RED(prueth))
+			prueth_get_mc_mac_mask(prueth, mc_mask1);
 	} else {
 		prueth->eth_type = ethtype2;
 		if (PRUETH_HAS_HSR(prueth))
 			prueth->hsr_mode = hsr_mode2;
+		if (PRUETH_HAS_RED(prueth))
+			prueth_get_mc_mac_mask(prueth, mc_mask2);
 	}
+
+	dev_info(dev, "pruss MC Mask %x:%x:%x:%x:%x:%x\n",
+		 prueth->sw_mc_mac_mask[0],
+		 prueth->sw_mc_mac_mask[1],
+		 prueth->sw_mc_mac_mask[2],
+		 prueth->sw_mc_mac_mask[3],
+		 prueth->sw_mc_mac_mask[4],
+		 prueth->sw_mc_mac_mask[5]);
 
 	if (PRUETH_HAS_SWITCH(prueth))
 		prueth->ocmc_ram_size = OCMC_RAM_SIZE_SWITCH;

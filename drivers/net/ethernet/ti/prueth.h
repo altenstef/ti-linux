@@ -19,6 +19,7 @@
 #include <linux/hrtimer.h>
 #include <linux/kthread.h>
 #include <linux/pruss.h>
+#include <linux/if_ether.h>
 #include "icss_switch.h"
 #include "icss_time_sync.h"
 
@@ -553,6 +554,7 @@ struct prueth {
 	int pruss_id;
 	size_t ocmc_ram_size;
 	unsigned int eth_type;
+	unsigned char sw_mc_mac_mask[ETH_ALEN];
 	unsigned int hsr_mode;
 	unsigned int emac_configured;
 	unsigned int tbl_check_period;
@@ -572,6 +574,7 @@ struct prueth {
 #ifdef	CONFIG_DEBUG_FS
 	struct dentry *root_dir;
 	struct dentry *node_tbl_file;
+	struct dentry *mc_filter_file;
 	struct dentry *nt_clear_file;
 	struct dentry *hsr_mode_file;
 	struct dentry *dlrmt_file;
