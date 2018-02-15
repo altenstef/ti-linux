@@ -435,6 +435,7 @@ struct prueth_emac {
 	struct prueth *prueth;
 	struct net_device *ndev;
 	struct sk_buff *tx_ev_msg[PTP_PDLY_RSP_MSG_ID + 1]; /* tx ev needs ts */
+	spinlock_t ev_msg_lock;
 	u8 mac_addr[6];
 	u32 msg_enable;
 

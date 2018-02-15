@@ -222,10 +222,13 @@ static int pruptp_proc_tx_ts(struct prueth_emac *emac,
 	struct prueth *prueth = emac->prueth;
 	struct sk_buff *skb;
 	int ret;
+	unsigned long flags;
 
 	/* get the msg from list */
+	spin_lock_irqsave(&emac->ev_msg_lock, flags);
 	skb = emac->tx_ev_msg[ts_msgtype];
 	emac->tx_ev_msg[ts_msgtype] = NULL;
+	spin_unlock_irqrestore(&emac->ev_msg_lock, flags);
 	if (!skb) {
 		netdev_err(emac->ndev,
 			   "no tx msg %u found waiting for ts\n", ts_msgtype);
@@ -1216,6 +1219,7 @@ static irqreturn_t emac_tx_hardirq(int irq, void *dev_id)
 static inline int emac_tx_ts_enqueue(struct prueth_emac *emac,
 				     struct sk_buff *skb)
 {
+	unsigned long flags;
 	u8 msg_t = pruptp_ts_msgtype(skb);
 
 	if (msg_t > PTP_PDLY_RSP_MSG_ID) {
@@ -1223,13 +1227,16 @@ static inline int emac_tx_ts_enqueue(struct prueth_emac *emac,
 		return -EINVAL;
 	}
 
+	spin_lock_irqsave(&emac->ev_msg_lock, flags);
 	if (emac->tx_ev_msg[msg_t]) {
+		spin_unlock_irqrestore(&emac->ev_msg_lock, flags);
 		netdev_err(emac->ndev, "msg %u finds ts queue occupied\n",
 			   msg_t);
 		return -EBUSY;
 	}
 
 	emac->tx_ev_msg[msg_t] = skb;
+	spin_unlock_irqrestore(&emac->ev_msg_lock, flags);
 	return 0;
 }
 
@@ -3575,6 +3582,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 
 	emac->msg_enable = netif_msg_init(debug_level, PRUETH_EMAC_DEBUG);
 	spin_lock_init(&emac->lock);
+	spin_lock_init(&emac->ev_msg_lock);
 	/* get mac address from DT and set private and netdev addr */
 	mac_addr = of_get_mac_address(eth_node);
 	if (mac_addr)
