@@ -94,7 +94,3 @@
 	};
 
 };
-
-&ptp_bc {
-	status = "okay";
-};
