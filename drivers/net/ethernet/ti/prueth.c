@@ -95,6 +95,19 @@ static char *pruss2_mc_mask = PRUETH_DEFAULT_MC_MASK;
 module_param(pruss2_mc_mask, charp, 0444);
 MODULE_PARM_DESC(pruss2_mc_mask, "Choose pruss2 MC mask");
 
+static inline int is_hsr_skb(struct sk_buff *skb)
+{
+	unsigned char *p;
+
+	if (!skb->data)
+		return 0;
+
+	p = skb->data;
+
+	/* FIXME: should use macros to access header fields */
+	return (*(p + 12) == 0x89 && *(p + 13) == 0x2f);
+}
+
 static inline u32 prueth_read_reg(struct prueth *prueth,
 				  enum prueth_mem region,
 				  unsigned int reg)
@@ -350,6 +363,7 @@ static void prueth_clean_ptp_tx_work(void) { }
 static int pruptp_rx_timestamp(struct prueth_emac *emac, struct sk_buff *skb)
 {
 	struct prueth *prueth = emac->prueth;
+	bool changed = false;
 	u32 ts_ofs;
 	u8 ts_msgtype;
 	int ret;
@@ -357,7 +371,21 @@ static int pruptp_rx_timestamp(struct prueth_emac *emac, struct sk_buff *skb)
 	if (!emac_is_ptp_rx_enabled(emac))
 		return -EPERM;
 
+	if (PRUETH_HAS_HSR(prueth) && is_hsr_skb(skb)) {
+		/* This 6-byte shift is just a trick to skip
+		 * the size of a hsr tag so that the same
+		 * pruptp_ts_msgtype can be re-used to parse
+		 * hsr tagged skbs
+		 */
+		skb->data += 6;
+		changed = true;
+	}
+
 	ts_msgtype = pruptp_ts_msgtype(skb);
+
+	if (changed)
+		skb->data -= 6;
+
 	if ((ts_msgtype != PTP_SYNC_MSG_ID) &&
 	    (ts_msgtype != PTP_PDLY_REQ_MSG_ID) &&
 	    (ts_msgtype != PTP_PDLY_RSP_MSG_ID))
@@ -1196,7 +1224,24 @@ static inline int emac_tx_ts_enqueue(struct prueth_emac *emac,
 				     struct sk_buff *skb)
 {
 	unsigned long flags;
-	u8 msg_t = pruptp_ts_msgtype(skb);
+	struct prueth *prueth = emac->prueth;
+	bool changed = false;
+	u8 msg_t;
+
+	if (PRUETH_HAS_HSR(prueth) && is_hsr_skb(skb)) {
+		/* This 6-byte shift is just a trick to skip
+		 * the size of a hsr tag so that the same
+		 * pruptp_ts_msgtype can be re-used to parse
+		 * hsr tagged skbs
+		 */
+		skb->data += 6;
+		changed = true;
+	}
+
+	msg_t = pruptp_ts_msgtype(skb);
+
+	if (changed)
+		skb->data -= 6;
 
 	if (msg_t > PTP_PDLY_RSP_MSG_ID) {
 		netdev_err(emac->ndev, "invalid msg_t %u\n", msg_t);
