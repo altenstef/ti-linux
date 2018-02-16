@@ -3842,6 +3842,7 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
 {
 	struct sk_buff *skb;
 	bool tsonly;
+	struct skb_redundant_info *sred, *orig_sred;
 
 	if (!sk)
 		return;
@@ -3860,6 +3861,13 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
 	if (tsonly) {
 		skb_shinfo(skb)->tx_flags = skb_shinfo(orig_skb)->tx_flags;
 		skb_shinfo(skb)->tskey = skb_shinfo(orig_skb)->tskey;
+	}
+
+	/* FIXME: should check sk flags */
+	orig_sred = skb_redinfo(orig_skb);
+	if (orig_sred->lsdu_size) {
+		sred = skb_redinfo(skb);
+		memcpy(sred, orig_sred, sizeof(*sred));
 	}
 
 	if (hwtstamps)

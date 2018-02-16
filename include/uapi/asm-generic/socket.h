@@ -92,4 +92,7 @@
 
 #define SO_CNX_ADVICE		53
 
+#define SO_REDUNDANT		54
+#define SCM_REDUNDANT		SO_REDUNDANT
+
 #endif /* __ASM_GENERIC_SOCKET_H */
