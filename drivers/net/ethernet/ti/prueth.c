@@ -1235,6 +1235,7 @@ static inline int emac_tx_ts_enqueue(struct prueth_emac *emac,
 		return -EBUSY;
 	}
 
+	skb_get(skb);
 	emac->tx_ev_msg[msg_t] = skb;
 	spin_unlock_irqrestore(&emac->ev_msg_lock, flags);
 	return 0;
@@ -2887,10 +2888,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	ndev->stats.tx_packets++;
 	ndev->stats.tx_bytes += skb->len;
 
-	if (!(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS) ||
-	    !PRUETH_HAS_PTP(emac->prueth) ||
-	    !emac_is_ptp_tx_enabled(emac))
-		dev_kfree_skb_any(skb);
+	dev_kfree_skb_any(skb);
 
 	return NETDEV_TX_OK;
 
