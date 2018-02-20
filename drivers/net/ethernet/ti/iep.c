@@ -849,7 +849,7 @@ static int iep_config(struct iep *iep)
 static inline void iep_start(struct iep *iep)
 {
 	iep_set_reg(iep, PRUSS_IEP_GLOBAL_CFG,
-		    IEP_GLOBAL_CFG_REG_MASK, IEP_GLOBAL_CFG_REG_VAL);
+		    IEP_GLOBAL_CFG_REG_MASK, IEP_GLOBAL_CFG_REG_PTP_VAL);
 }
 
 static inline void iep_time_sync_start(struct iep *iep)

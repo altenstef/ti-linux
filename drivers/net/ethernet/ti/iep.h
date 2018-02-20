@@ -77,7 +77,8 @@
 #define IEP_TC_DEFAULT_MULT          (5 << IEP_TC_DEFAULT_SHIFT)
 
 #define IEP_GLOBAL_CFG_REG_MASK      0xfffff
-#define IEP_GLOBAL_CFG_REG_VAL       0x00111
+#define IEP_GLOBAL_CFG_REG_PTP_VAL	0x111
+#define IEP_GLOBAL_CFG_REG_DEF_VAL	0x551
 
 /* 10 ms width */
 #define IEP_DEFAULT_PPS_WIDTH        (PRUSS_IEP_CLOCK_RATE / 100)
