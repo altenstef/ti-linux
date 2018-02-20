@@ -2640,6 +2640,26 @@ static int emac_ndo_open(struct net_device *ndev)
 		if (PRUETH_HAS_PTP(prueth)) {
 			if (iep_register(prueth->iep))
 				dev_err(&ndev->dev, "error registering iep\n");
+		} else {
+			/* Currently PTP is used with PRP firmware and only
+			 * on AM5xxx devices. So we reach here for non PRP
+			 * firmware cases. Dual EMAC Firmware on AM3xxx devices
+			 * uses IEP counter to keep track of Tx FIFO fill level
+			 * since that HW capability is not available in this
+			 * device. AM4xxx re-uses AM3xxx firmware. So need to
+			 * have the IEP counter IEP_GLOBAL_CFG_REG initialized
+			 * to 0x551 as required by the firmware on AM3xxx/4xxx
+			 * devices. For other cases, IEP counter is not used
+			 * in firmware and doesn't matter if it is initialized
+			 * or not. So we alway initialize the register to
+			 * POR value and keep it enabled to satisfy the
+			 * firmware on AM3xxx/4xxx devices.
+			 *
+			 * TODO: Re-visit this firmware dependency when PTP
+			 * is extended to Dual EMAC firmware on AM3xxx/4xxx.
+			 */
+			prueth_set_reg(prueth, PRUETH_MEM_IEP, 0, 0xffff,
+				       IEP_GLOBAL_CFG_REG_DEF_VAL);
 		}
 	}
 
