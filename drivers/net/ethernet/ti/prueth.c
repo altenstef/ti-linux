@@ -3041,11 +3041,10 @@ static void prueth_sw_set_rx_mode(struct prueth_emac *emac)
 	void __iomem *dram1 = prueth->mem[PRUETH_MEM_DRAM1].va;
 	struct netdev_hw_addr *ha;
 	u8 hash;
-	int i;
 
-	for (i = 0; i < 6; i++)
-		writeb(prueth->sw_mc_mac_mask[i],
-		       dram1 + MULTICAST_FILTER_MASK + i);
+	/* first copy the mask */
+	memcpy_toio(dram1 + MULTICAST_FILTER_MASK,
+		    &prueth->sw_mc_mac_mask[0], ETH_ALEN);
 
 	if (ndev->flags & IFF_ALLMULTI) {
 		writeb(MULTICAST_FILTER_DISABLED,
