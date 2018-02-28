@@ -929,33 +929,6 @@ static void nt_updater(struct kthread_work *work)
 
 static int prueth_hsr_prp_node_table_init(struct prueth *prueth)
 {
-	void __iomem *dram0 = prueth->mem[PRUETH_MEM_DRAM0].va;
-	void __iomem *dram1 = prueth->mem[PRUETH_MEM_DRAM1].va;
-	void __iomem *sram  = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
-	u32 i, val;
-
-	for (i = 0, val = NEXT_FREE_ADDRESS_NT_QUEUE_INIT;
-	     i < NEXT_FREE_ADDRESS_NT_QUEUE_DMEM_SIZE;
-	     i += sizeof(val), val += NEXT_FREE_ADDRESS_NT_QUEUE_STEP)
-		writel(val, dram0 + NEXT_FREE_ADDRESS_NT_QUEUE + i);
-
-	writel(POINTERS_FREE_ADDR_NODETABLE_INIT,
-	       dram0 + POINTERS_FREE_ADDR_NODETABLE);
-
-	writel(INDEX_ARRAY_INIT, sram + INDEX_ARRAY);
-	memset_io(sram + NODE_TABLE, 0, NODE_TABLE_DMEM_SIZE);
-
-	/* Set up guard values */
-	writel(0, sram + NODE_TABLE);
-	writel(0x00010000, sram + NODE_TABLE + 4);
-	writel(0xffffffff, sram + NODE_TABLE_END);
-	writel(0x0001ffff, sram + NODE_TABLE_END + 4);
-
-	writel(NODE_TABLE_SIZE_MAX_PRU_INIT, dram1 + NODE_TABLE_SIZE);
-	writel(MASTER_SLAVE_BUSY_BITS_CLEAR, dram1 + NODE_TABLE_ARBITRATION);
-	writel(NODE_FORGET_TIME_60000_MS,    dram1 + NODE_FORGET_TIME);
-	writel(TABLE_CHECK_RESOLUTION_10_MS, dram1 + NODETABLE_CHECK_RESO);
-
 	prueth->nt = prueth->mem[PRUETH_MEM_SHARED_RAM].va + NODE_TABLE_NEW;
 	node_table_init(prueth);
 	spin_lock_init(&prueth->nt_lock);
