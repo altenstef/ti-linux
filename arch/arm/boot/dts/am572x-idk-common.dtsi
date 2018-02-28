@@ -48,6 +48,12 @@
 			reusable;
 			status = "okay";
 		};
+
+		dsp2dsp_shm: dsp2dsp_shm@bfc00000 {
+			reg = <0x0 0xbfc00000 0x0 0x400000>;
+			no-map;
+			status = "okay";
+		};
 	};
 
 	status-leds {
