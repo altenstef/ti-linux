@@ -25,7 +25,7 @@ static int ptp_bc_clock_register(void)
 	return -1;
 }
 
-static int ptp_bc_clock_unregister(int clkid)
+static void ptp_bc_clock_unregister(int clkid)
 {
 }
 
