@@ -831,6 +831,7 @@ void cpts_unregister(struct cpts *cpts)
 
 	ptp_clock_unregister(cpts->clock);
 	cpts->clock = NULL;
+	ptp_bc_clock_unregister(cpts->bc_clkid);
 
 	cpts_write32(cpts, 0, int_enable);
 	cpts_write32(cpts, 0, control);
