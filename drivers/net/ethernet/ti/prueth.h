@@ -250,6 +250,7 @@ struct lre_statistics {
 	u32 node_table_lookup_error_b;
 	u32 node_table_full;
 	u32 lre_multicast_dropped;
+	u32 lre_vlan_dropped;
 
 	/* additional debug counters */
 	u32 lre_total_rx_a; /* count of all frames received at port-A */
@@ -472,6 +473,7 @@ struct prueth_emac {
 	u32 rx_packet_counts[NUM_RX_QUEUES];
 
 	spinlock_t lock;	/* serialize access */
+	spinlock_t addr_lock;
 #ifdef	CONFIG_DEBUG_FS
 	struct dentry *root_dir;
 	struct dentry *stats_file;
@@ -582,6 +584,7 @@ struct prueth {
 	struct dentry *root_dir;
 	struct dentry *node_tbl_file;
 	struct dentry *mc_filter_file;
+	struct dentry *vlan_filter_file;
 	struct dentry *nt_clear_file;
 	struct dentry *hsr_mode_file;
 	struct dentry *dlrmt_file;
