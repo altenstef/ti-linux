@@ -312,16 +312,16 @@ static int
 prueth_hsr_prp_mc_filter_show(struct seq_file *sfp, void *data)
 {
 	struct prueth *prueth = (struct prueth *)sfp->private;
-	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+	void __iomem *dram1 = prueth->mem[PRUETH_MEM_DRAM1].va;
 	u8 val;
 	int i;
 
-	val = readb(sram + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
+	val = readb(dram1 + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
 
 	seq_printf(sfp, "MC Filter : %s", val ? "enabled\n" : "disabled\n");
 	seq_puts(sfp, "MC Mask : ");
 	for (i = 0; i < 6; i++) {
-		val = readb(sram + MULTICAST_FILTER_MASK + i);
+		val = readb(dram1 + MULTICAST_FILTER_MASK + i);
 		if (i == 5)
 			seq_printf(sfp, "%x", val);
 		else
@@ -329,12 +329,12 @@ prueth_hsr_prp_mc_filter_show(struct seq_file *sfp, void *data)
 	}
 	seq_puts(sfp, "\n");
 
-	val = readb(sram + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
+	val = readb(dram1 + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
 	seq_puts(sfp, "MC Filter table below 1 - Allowed, 0 - Dropped\n");
 
 	if (val) {
 		for (i = 0; i < MULTICAST_TABLE_SIZE; i++) {
-			val = readb(sram + MULTICAST_FILTER_TABLE + i);
+			val = readb(dram1 + MULTICAST_FILTER_TABLE + i);
 			if (!(i % 16))
 				seq_printf(sfp, "\n%3x: ", i);
 			seq_printf(sfp, "%d ", val);

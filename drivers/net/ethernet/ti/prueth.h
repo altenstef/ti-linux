@@ -249,6 +249,7 @@ struct lre_statistics {
 	u32 node_table_lookup_error_a;
 	u32 node_table_lookup_error_b;
 	u32 node_table_full;
+	u32 lre_multicast_dropped;
 
 	/* additional debug counters */
 	u32 lre_total_rx_a; /* count of all frames received at port-A */
