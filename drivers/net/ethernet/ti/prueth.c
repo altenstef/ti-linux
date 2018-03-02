@@ -3038,26 +3038,26 @@ static void prueth_sw_set_rx_mode(struct prueth_emac *emac)
 {
 	struct prueth *prueth = emac->prueth;
 	struct net_device *ndev = emac->ndev;
-	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+	void __iomem *dram1 = prueth->mem[PRUETH_MEM_DRAM1].va;
 	struct netdev_hw_addr *ha;
 	u8 hash;
 	int i;
 
 	for (i = 0; i < 6; i++)
 		writeb(prueth->sw_mc_mac_mask[i],
-		       sram + MULTICAST_FILTER_MASK + i);
+		       dram1 + MULTICAST_FILTER_MASK + i);
 
 	if (ndev->flags & IFF_ALLMULTI) {
 		writeb(MULTICAST_FILTER_DISABLED,
-		       sram + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
+		       dram1 + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
 		return;
 	}
 
 	/* disable all multicast hash table entries */
-	memset_io(sram + MULTICAST_FILTER_TABLE, 0, MULTICAST_TABLE_SIZE);
+	memset_io(dram1 + MULTICAST_FILTER_TABLE, 0, MULTICAST_TABLE_SIZE);
 
 	writeb(MULTICAST_FILTER_ENABLED,
-	       sram + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
+	       dram1 + M_MULTICAST_TABLE_SEARCH_OP_CONTROL_BIT);
 
 	if (netdev_mc_empty(ndev))
 		return;
@@ -3065,7 +3065,7 @@ static void prueth_sw_set_rx_mode(struct prueth_emac *emac)
 	netdev_for_each_mc_addr(ha, ndev) {
 		hash = get_hash_with_mask(ha->addr, prueth->sw_mc_mac_mask);
 		writeb(MULTICAST_FILTER_HOST_RCV_ALLOWED,
-		       sram + MULTICAST_FILTER_TABLE + hash);
+		       dram1 + MULTICAST_FILTER_TABLE + hash);
 	}
 }
 
@@ -3358,6 +3358,7 @@ static const struct {
 	{"lreNtLookupErrA", PRUETH_LRE_STAT_OFS(node_table_lookup_error_a)},
 	{"lreNtLookupErrB", PRUETH_LRE_STAT_OFS(node_table_lookup_error_b)},
 	{"lreNodeTableFull", PRUETH_LRE_STAT_OFS(node_table_full)},
+	{"lreMulticastDropped", PRUETH_LRE_STAT_OFS(lre_multicast_dropped)},
 	{"lreTotalRxA", PRUETH_LRE_STAT_OFS(lre_total_rx_a)},
 	{"lreTotalRxB", PRUETH_LRE_STAT_OFS(lre_total_rx_b)},
 	{"lreOverflowPru0", PRUETH_LRE_STAT_OFS(lre_overflow_pru0)},
