@@ -2700,6 +2700,7 @@ free_rx_irq:
 static int sw_emac_pru_stop(struct prueth_emac *emac, struct net_device *ndev)
 {
 	struct prueth *prueth = emac->prueth;
+	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
 
 	prueth->emac_configured &= ~BIT(emac->port_id);
 	/* disable and free rx irq */
@@ -2729,6 +2730,8 @@ static int sw_emac_pru_stop(struct prueth_emac *emac, struct net_device *ndev)
 			kfree(prueth->mac_queue);
 			prueth->mac_queue = NULL;
 		}
+		/* Disable VLAN filter */
+		writeb(VLAN_FLTR_DIS, sram + VLAN_FLTR_CTRL_BYTE);
 	}
 
 	return 0;
@@ -3199,6 +3202,69 @@ static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 	return phy_mii_ioctl(emac->phydev, req, cmd);
 }
 
+static int emac_add_del_vid(struct prueth_emac *emac,
+			    bool add, __be16 proto, u16 vid)
+{
+	struct prueth *prueth = emac->prueth;
+	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
+	u16 index = ((vid >> 3) & 0x1ff);
+	unsigned long flags;
+	u8 val;
+
+	/* VLAN filter support available only in HSR/PRP firmware */
+	if (!PRUETH_HAS_RED(prueth))
+		return 0;
+
+	if (proto != htons(ETH_P_8021Q))
+		return -EINVAL;
+
+	if (vid >= VLAN_VID_MAX)
+		return -EINVAL;
+
+	/* VLAN filter table is 512 bytes wide. Index it using
+	 * vid / 8 and then set/reset the bit using vid & 0x7
+	 */
+	spin_lock_irqsave(&emac->addr_lock, flags);
+	/* By default enable priority tagged frames to host below by
+	 * resetting bit 1 in the VLAN_FLTR_CTRL_BYTE. So vid 0 need
+	 * not be added to the table.
+	 */
+	if (vid) {
+		val = readb(sram + VLAN_FLTR_TBL_BASE_ADDR + index);
+		if (add)
+			val |= BIT(vid & 7);
+		else
+			val &= ~BIT(vid & 7);
+		writeb(val, sram + VLAN_FLTR_TBL_BASE_ADDR + index);
+	}
+
+	/* Enable VLAN filter for HSR/PRP. By default drop untagged frames
+	 * and allow priority tagged frames. Convention is 0 for allow,
+	 * 1 for drop.
+	 */
+	writeb(VLAN_FLTR_ENA | BIT(VLAN_FLTR_UNTAG_HOST_RCV_CTRL_SHIFT),
+	       sram + VLAN_FLTR_CTRL_BYTE);
+	spin_unlock_irqrestore(&emac->addr_lock, flags);
+
+	return 0;
+}
+
+static int emac_ndo_vlan_rx_add_vid(struct net_device *dev,
+				    __be16 proto, u16 vid)
+{
+	struct prueth_emac *emac = netdev_priv(dev);
+
+	return emac_add_del_vid(emac, true, proto, vid);
+}
+
+static int emac_ndo_vlan_rx_kill_vid(struct net_device *dev,
+				     __be16 proto, u16 vid)
+{
+	struct prueth_emac *emac = netdev_priv(dev);
+
+	return emac_add_del_vid(emac, false, proto, vid);
+}
+
 static const struct net_device_ops emac_netdev_ops = {
 	.ndo_open = emac_ndo_open,
 	.ndo_stop = emac_ndo_stop,
@@ -3212,6 +3278,9 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_set_features = emac_ndo_set_features,
 	.ndo_fix_features = emac_ndo_fix_features,
 	.ndo_do_ioctl = emac_ndo_ioctl,
+	.ndo_vlan_rx_add_vid = emac_ndo_vlan_rx_add_vid,
+	.ndo_vlan_rx_kill_vid = emac_ndo_vlan_rx_kill_vid,
+
 	/* +++TODO: implement .ndo_setup_tc */
 };
 
@@ -3358,6 +3427,7 @@ static const struct {
 	{"lreNtLookupErrB", PRUETH_LRE_STAT_OFS(node_table_lookup_error_b)},
 	{"lreNodeTableFull", PRUETH_LRE_STAT_OFS(node_table_full)},
 	{"lreMulticastDropped", PRUETH_LRE_STAT_OFS(lre_multicast_dropped)},
+	{"lreVlanDropped", PRUETH_LRE_STAT_OFS(lre_vlan_dropped)},
 	{"lreTotalRxA", PRUETH_LRE_STAT_OFS(lre_total_rx_a)},
 	{"lreTotalRxB", PRUETH_LRE_STAT_OFS(lre_total_rx_b)},
 	{"lreOverflowPru0", PRUETH_LRE_STAT_OFS(lre_overflow_pru0)},
@@ -3577,6 +3647,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 	emac->msg_enable = netif_msg_init(debug_level, PRUETH_EMAC_DEBUG);
 	spin_lock_init(&emac->lock);
 	spin_lock_init(&emac->ev_msg_lock);
+	spin_lock_init(&emac->addr_lock);
 	/* get mac address from DT and set private and netdev addr */
 	mac_addr = of_get_mac_address(eth_node);
 	if (mac_addr)
@@ -3619,13 +3690,16 @@ static int prueth_netdev_init(struct prueth *prueth,
 
 	if (PRUETH_HAS_HSR(prueth))
 		ndev->features |= (NETIF_F_HW_HSR_RX_OFFLOAD |
-					NETIF_F_HW_L2FW_DOFFLOAD);
+					NETIF_F_HW_L2FW_DOFFLOAD |
+					NETIF_F_HW_VLAN_CTAG_FILTER);
 	else if (PRUETH_HAS_PRP(prueth))
-		ndev->features |= NETIF_F_HW_PRP_RX_OFFLOAD;
+		ndev->features |= NETIF_F_HW_PRP_RX_OFFLOAD |
+				  NETIF_F_HW_VLAN_CTAG_FILTER;
 
-	ndev->hw_features |= NETIF_F_HW_PRP_RX_OFFLOAD |
+	ndev->hw_features |= (NETIF_F_HW_PRP_RX_OFFLOAD |
 				NETIF_F_HW_HSR_RX_OFFLOAD |
-				NETIF_F_HW_L2FW_DOFFLOAD;
+				NETIF_F_HW_L2FW_DOFFLOAD |
+				NETIF_F_HW_VLAN_CTAG_FILTER);
 
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &emac_ethtool_ops;

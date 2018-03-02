@@ -87,6 +87,40 @@
 #define LRE_DUPLICATE_DISCARD                  (LRE_START + 104)
 #define LRE_TRANSPARENT_RECEPTION              (LRE_START + 108)
 
+/* SRAM
+ * VLAN filter defines & offsets
+ */
+#define VLAN_FLTR_CTRL_BYTE                          0x1FE
+/* one bit field | 0 : VLAN filter disabled
+ *               | 1 : VLAN filter enabled
+ */
+#define VLAN_FLTR_CTRL_SHIFT                         0x0
+/* one bit field | 0 : untagged host rcv allowed
+ *               | 1 : untagged host rcv not allowed
+ */
+#define VLAN_FLTR_UNTAG_HOST_RCV_CTRL_SHIFT          0x1
+/* one bit field | 0 : priotag host rcv allowed
+ *               | 1 : priotag host rcv not allowed
+ */
+#define VLAN_FLTR_PRIOTAG_HOST_RCV_CTRL_SHIFT        0x2
+#define VLAN_FLTR_DIS                                0x0
+#define VLAN_FLTR_ENA                                0x1
+
+#define VLAN_FLTR_UNTAG_HOST_RCV_ALL                 0x0
+#define VLAN_FLTR_UNTAG_HOST_RCV_NAL                 0x1
+
+#define VLAN_FLTR_PRIOTAG_HOST_RCV_ALL               0x0
+#define VLAN_FLTR_PRIOTAG_HOST_RCV_NAL               0x1
+
+/* VID = 0 for priority tagged frames */
+#define VLAN_FLTR_PRIOTAG_VID                        0x0
+#define VLAN_FLTR_TBL_BASE_ADDR                      0x200
+/* 4096 bits = 512 bytes = 0x200 bytes */
+#define VLAN_FLTR_TBL_SIZE                           0x200
+
+#define VLAN_VID_MIN                                 0x0
+#define VLAN_VID_MAX                                 0x0FFF
+
 #define IEC62439_CONST_DUPLICATE_ACCEPT                 0x01
 #define IEC62439_CONST_DUPLICATE_DISCARD                0x02
 #define IEC62439_CONST_TRANSPARENT_RECEPTION_REMOVE_RCT 0x01
