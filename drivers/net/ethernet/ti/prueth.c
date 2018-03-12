@@ -3238,12 +3238,18 @@ static int emac_add_del_vid(struct prueth_emac *emac,
 		writeb(val, sram + VLAN_FLTR_TBL_BASE_ADDR + index);
 	}
 
-	/* Enable VLAN filter for HSR/PRP. By default drop untagged frames
-	 * and allow priority tagged frames. Convention is 0 for allow,
-	 * 1 for drop.
+	/* Enable VLAN filter for HSR/PRP. By default, allow priority
+	 * tagged frames to be forwarded to host by enabling the
+	 * corresponding control bit. However this caused SV untagged
+	 * frames to be dropped as well which is undesirable. To
+	 * workaround that, enable untagged frames as well to host.
+	 * By convention, 0 in control bit means forward and 1 means
+	 * drop.
+	 *
+	 * TODO: Revisit this when tagged VLAN frames are supported
+	 * for Supervision frames.
 	 */
-	writeb(VLAN_FLTR_ENA | BIT(VLAN_FLTR_UNTAG_HOST_RCV_CTRL_SHIFT),
-	       sram + VLAN_FLTR_CTRL_BYTE);
+	writeb(VLAN_FLTR_ENA, sram + VLAN_FLTR_CTRL_BYTE);
 	spin_unlock_irqrestore(&emac->addr_lock, flags);
 
 	return 0;
