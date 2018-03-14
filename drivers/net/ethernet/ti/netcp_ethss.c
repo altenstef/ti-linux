@@ -2019,7 +2019,8 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
 		netdev_printk(KERN_INFO, ndev, "Link is Down\n");
 	}
 
-	if (slave->link_interface == XGMII_LINK_MAC_MAC_FORCED) {
+	if ((slave->link_interface == XGMII_LINK_MAC_MAC_FORCED) ||
+	    ((slave->link_interface == SGMII_LINK_MAC_MAC_FORCED) && ndev)) {
 		if (up) {
 			if (slave->link_recover_thresh ||
 			    slave->link_recovering) {
@@ -3083,6 +3084,9 @@ static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
 		GBE_SET_REG_OFS(slave, emac_regs, soft_reset);
 		GBE_SET_REG_OFS(slave, emac_regs, rx_maxlen);
 
+		if (slave->link_interface == SGMII_LINK_MAC_MAC_FORCED)
+			INIT_DELAYED_WORK(&slave->link_recover_work,
+					  gbe_slave_link_recover);
 	} else if (IS_SS_ID_MU(gbe_dev)) {
 		/* Initialize  slave port register offsets */
 		GBENU_SET_REG_OFS(slave, port_regs, port_vlan);
@@ -3102,6 +3106,9 @@ static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
 		GBENU_SET_REG_OFS(slave, emac_regs, mac_status);
 		GBENU_SET_REG_OFS(slave, emac_regs, soft_reset);
 
+		if (slave->link_interface == SGMII_LINK_MAC_MAC_FORCED)
+			INIT_DELAYED_WORK(&slave->link_recover_work,
+					  gbe_slave_link_recover);
 	} else if (gbe_dev->ss_version == XGBE_SS_VERSION_10) {
 		/* Initialize  slave port register offsets */
 		XGBE_SET_REG_OFS(slave, port_regs, port_vlan);

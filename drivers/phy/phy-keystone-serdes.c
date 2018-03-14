@@ -1214,21 +1214,31 @@ static int kserdes_check_link_status(struct kserdes_config *sc,
 	return link_up;
 }
 
+static int kserdes_check_lanes_status(struct kserdes_config *sc);
+
 static int kserdes_wait_link_up(struct kserdes_config *sc,
 				u32 lanes_chk_mask,
 				u32 *lanes_up_mask)
 {
 	u32 current_state[KSERDES_MAX_LANES];
 	unsigned long time_check = 0;
-	int i, link_up, ret = 0;
+	int i, link_up, lane_status, ret = 0;
 
 	memset(current_state, 0, sizeof(current_state));
 
 	do {
 		usleep_range(10000, 20000);
-		link_up = kserdes_check_link_status(sc, current_state,
-						    lanes_chk_mask,
-						    lanes_up_mask);
+		if (sc->phy_type == KSERDES_PHY_XGE)
+			link_up = kserdes_check_link_status(sc, current_state,
+							    lanes_chk_mask,
+							    lanes_up_mask);
+		else {
+			lane_status = kserdes_check_lanes_status(sc);
+			if (lane_status)
+				link_up = 0;
+			else
+				link_up = 1;
+		}
 
 		if (link_up)
 			break;
@@ -1236,7 +1246,7 @@ static int kserdes_wait_link_up(struct kserdes_config *sc,
 		for_each_enable_lane(sc, i) {
 			if (!(*lanes_up_mask & BIT(i))) {
 				dev_dbg(sc->dev,
-					"XGE: detected lane %d down\n", i);
+					"Detected lane %d down while waiting link up\n", i);
 			}
 		}
 
@@ -2009,7 +2019,7 @@ static int kserdes_enable_lane_rx(struct kserdes_config *sc, u32 lane,
 	return ret;
 }
 
-static int kserdes_recover_lane_rx(struct kserdes_config *sc, u32 lane,
+static int xge_kserdes_recover_lane_rx(struct kserdes_config *sc, u32 lane,
 				   struct kserdes_lane_ofs *lofs,
 				   struct kserdes_lane_dlev_out *ldlevo)
 {
@@ -2050,6 +2060,38 @@ static int kserdes_recover_lane_rx(struct kserdes_config *sc, u32 lane,
 
 	if (sc->phy_type == KSERDES_PHY_XGE)
 		kserdes_rx_calibration_phyb(sc, lane, lofs, ldlevo);
+
+	return 0;
+}
+
+static int gbe_kserdes_recover_lane_rx(struct kserdes_config *sc, u32 lane,
+				       struct kserdes_lane_ofs *lofs,
+				       struct kserdes_lane_dlev_out *ldlevo)
+{
+	int ret;
+
+	_kserdes_force_signal_detect_high(sc->regs, lane);
+
+	if (!sc->rx_force_enable) {
+		ret = _kserdes_wait_lane_sd(sc->regs, lane);
+		if (ret) {
+			dev_dbg(sc->dev,
+				"init_lane_rx wait sd valid FAILED %d\n", ret);
+			return ret;
+		}
+		dev_dbg(sc->dev, "recover_lane_rx sig detcected\n");
+
+		if (sc->lane[lane].ctrl_rate == KSERDES_QUARTER_RATE) {
+			ret = kserdes_wait_lane_rx_valid(sc, lane);
+			if (ret) {
+				dev_err(sc->dev,
+					"init_lane_rx wait rx valid FAILED %d\n",
+					ret);
+				return ret;
+			}
+			dev_dbg(sc->dev, "recover_lane_rx rx valid\n");
+		}
+	}
 
 	return 0;
 }
@@ -2243,14 +2285,22 @@ static int kserdes_phy_reset(struct phy *phy)
 	struct kserdes_dlev_out dlevo;
 	u32 i = ks_phy->lane;
 	u32 lanes_up_map = 0;
-	int ret;
+	int ret = 0;
 
-	ret = kserdes_recover_lane_rx(sc, i, &sofs->lane_ofs[i],
-				      &dlevo.lane_dlev_out[i]);
+	if (sc->phy_type == KSERDES_PHY_PCIE)
+		return ret;
+
+	if (sc->phy_type == KSERDES_PHY_XGE)
+		ret = xge_kserdes_recover_lane_rx(sc, i, &sofs->lane_ofs[i],
+			&dlevo.lane_dlev_out[i]);
+	else
+		ret = gbe_kserdes_recover_lane_rx(sc, i, &sofs->lane_ofs[i],
+			&dlevo.lane_dlev_out[i]);
 
 	kserdes_clear_wait_after(sc, BIT(i));
 
-	_kserdes_enable_xgmii_port(sc->peripheral_regmap, i);
+	if (sc->phy_type == KSERDES_PHY_XGE)
+		_kserdes_enable_xgmii_port(sc->peripheral_regmap, i);
 
 	kserdes_wait_link_up(sc, BIT(i), &lanes_up_map);
 
