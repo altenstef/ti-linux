@@ -482,6 +482,7 @@ static int cpts_pps_init(struct cpts *cpts)
 
 	cpts->pps_enable = -1;
 	cpts->ref_enable = -1;
+	cpts->pps_offset = 0;
 
 #ifdef CONFIG_OMAP_DM_TIMER
 	omap_dm_timer_enable(cpts->odt);
@@ -618,6 +619,10 @@ static int cpts_ptp_enable(struct ptp_clock_info *ptp,
 		}
 
 		return cpts_ref_enable(cpts, on);
+	case PTP_CLK_REQ_PPS_OFFSET:
+		if (cpts->use_1pps)
+			cpts->pps_offset = on;
+		return 0;
 	default:
 		break;
 	}
@@ -1328,8 +1333,9 @@ static void cpts_tmr_poll(struct cpts *cpts, bool cpts_poll)
 			 *
 			 * Calculate the expected tcrr value and update to it
 			 */
-			tmp64 = (100000000UL - cpts_ts_short);
-				do_div(tmp64, CPTS_TMR_CLK_PERIOD);
+			tmp64 = (100000000UL - cpts_ts_short) +
+				cpts->pps_offset;
+			do_div(tmp64, CPTS_TMR_CLK_PERIOD);
 			count_exp = (u32)tmp64;
 			count_exp = 0xFFFFFFFFUL - count_exp + 1;
 
@@ -1346,7 +1352,8 @@ static void cpts_tmr_poll(struct cpts *cpts, bool cpts_poll)
 				tmr_reload_cnt_prev = tmr_reload_cnt;
 				cpts_ts_trans = (cpts_ts - cpts_ts_short) +
 					100000000ULL;
-				pr_info("cpts_tmr_poll: exit INIT state\n");
+				pr_info("cpts_tmr_poll: exit INIT state with pps_offset = %d\n"
+					, cpts->pps_offset);
 			}
 		}
 		break;
@@ -1397,6 +1404,7 @@ static void cpts_tmr_poll(struct cpts *cpts, bool cpts_poll)
 			ts_val = (ts_offset >= 50000000UL) ?
 				-(100000000UL - ts_offset) :
 				(ts_offset);
+			ts_val -= cpts->pps_offset;
 			/* tsAjust should include the current error and the expected
 			 * drift for the next two cycles
 			 */
