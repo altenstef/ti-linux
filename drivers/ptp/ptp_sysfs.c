@@ -178,6 +178,33 @@ out:
 	return err;
 }
 
+static ssize_t pps_offset_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct ptp_clock *ptp = dev_get_drvdata(dev);
+	struct ptp_clock_info *ops = ptp->info;
+	struct ptp_clock_request req = { .type = PTP_CLK_REQ_PPS_OFFSET };
+	int rc, offset;
+	int err = -EINVAL;
+
+	if (!capable(CAP_SYS_TIME))
+		return -EPERM;
+
+	rc = kstrtoint(buf, 0, &offset);
+	if (rc)
+		goto out;
+
+	err = ops->enable(ops, &req, offset);
+	if (err)
+		goto out;
+
+	return count;
+out:
+	return err;
+}
+
+
 static int ptp_pin_name2index(struct ptp_clock *ptp, const char *name)
 {
 	int i;
@@ -239,6 +266,7 @@ static DEVICE_ATTR(extts_enable, 0220, NULL, extts_enable_store);
 static DEVICE_ATTR(fifo,         0444, extts_fifo_show, NULL);
 static DEVICE_ATTR(period,       0220, NULL, period_store);
 static DEVICE_ATTR(pps_enable,   0220, NULL, pps_enable_store);
+static DEVICE_ATTR(pps_offset,   0220, NULL, pps_offset_store);
 
 int ptp_cleanup_sysfs(struct ptp_clock *ptp)
 {
@@ -252,8 +280,10 @@ int ptp_cleanup_sysfs(struct ptp_clock *ptp)
 	if (info->n_per_out)
 		device_remove_file(dev, &dev_attr_period);
 
-	if (info->pps)
+	if (info->pps) {
 		device_remove_file(dev, &dev_attr_pps_enable);
+		device_remove_file(dev, &dev_attr_pps_offset);
+	}
 
 	if (info->n_pins) {
 		sysfs_remove_group(&dev->kobj, &ptp->pin_attr_group);
@@ -328,13 +358,19 @@ int ptp_populate_sysfs(struct ptp_clock *ptp)
 		err = device_create_file(dev, &dev_attr_pps_enable);
 		if (err)
 			goto out4;
+		err = device_create_file(dev, &dev_attr_pps_offset);
+		if (err)
+			goto out5;
 	}
 	if (info->n_pins) {
 		err = ptp_populate_pins(ptp);
 		if (err)
-			goto out5;
+			goto out6;
 	}
 	return 0;
+out6:
+	if (info->pps)
+		device_remove_file(dev, &dev_attr_pps_offset);
 out5:
 	if (info->pps)
 		device_remove_file(dev, &dev_attr_pps_enable);
