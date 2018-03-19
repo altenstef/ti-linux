@@ -154,6 +154,7 @@ struct cpts {
 	u32 count_prev;
 	u64 hw_timestamp;
 	u32 pps_latch_offset;
+	int pps_offset;
 
 	struct pinctrl *pins;
 	struct pinctrl_state *pin_state_pwm_off;
