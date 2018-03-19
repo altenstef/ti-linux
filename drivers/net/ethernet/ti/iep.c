@@ -227,6 +227,7 @@ static int iep_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 	/* if at least one of the pps is enabled, update cmp accordingly. */
 	if ((iep->pps[0].enable == 1) || (iep->pps[1].enable == 1)) {
 		ns_to_sec = NSEC_PER_SEC - ts.tv_nsec;
+		ns_to_sec += iep->pps[0].offset;
 		cyc_to_sec = iep_ns2cyc(iep, ns_to_sec);
 
 		/* +++TODO: fine tune the randomly fixed 10 ticks */
@@ -380,6 +381,7 @@ static int iep_pps_enable(struct iep *iep, unsigned int pps, int on)
 
 	/* align cmp count to next sec boundary */
 	ns_to_sec_bd = NSEC_PER_SEC - ts.tv_nsec;
+	ns_to_sec_bd += iep->pps[pps].offset;
 	cyc_to_sec_bd = iep_ns2cyc(iep, ns_to_sec_bd);
 	cmp_val = iep->tc.cycle_last + cyc_to_sec_bd;
 
@@ -514,6 +516,9 @@ static int iep_ptp_feature_enable(struct ptp_clock_info *ptp,
 		}
 
 		return iep_pps_enable(iep, IEP_PPS_EXTERNAL, on);
+	case PTP_CLK_REQ_PPS_OFFSET:
+		iep->pps[IEP_PPS_INTERNAL].offset = on;
+		return 0;
 
 	default:
 		break;
@@ -682,6 +687,7 @@ static long iep_overflow_check(struct ptp_clock_info *ptp)
 	 * out in the next check.
 	 */
 	ns_to_sec = NSEC_PER_SEC - ts.tv_nsec;
+	ns_to_sec += iep->pps[0].offset;
 	cyc_to_sec = iep_ns2cyc(iep, ns_to_sec);
 	cmp_val = iep->tc.cycle_last + cyc_to_sec;
 
