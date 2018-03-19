@@ -98,6 +98,7 @@ struct pps {
 	struct pinctrl_state *pin_on;
 	struct pinctrl_state *pin_off;
 	int enable;
+	int offset;
 	int next_op;
 	enum {
 		OP_DISABLE_SYNC,
