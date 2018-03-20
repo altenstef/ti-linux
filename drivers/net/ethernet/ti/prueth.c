@@ -1439,7 +1439,15 @@ static int prueth_tx_enqueue(struct prueth_emac *emac, struct sk_buff *skb,
 static void parse_packet_info(struct prueth *prueth, u32 buffer_descriptor,
 			      struct prueth_packet_info *pkt_info)
 {
-	if (PRUETH_HAS_HSR(prueth))
+	/* For HSR, start_offset indicates Tag is stripped and actual
+	 * data starts at an offset of 6 bytes from start of the buffer.
+	 * For PRP, it just mean RCT is present in the data. i.e in
+	 * this case, depending upon LRE_TRANSPARENT_RECEPTION state
+	 * RCT is to be stripped or not before passing data to upper
+	 * layer. Software adjust the skb->len accordingly. TODO Support for
+	 * LRE_TRANSPARENT_RECEPTION set to passRCT is TBD.
+	 */
+	if (PRUETH_HAS_RED(prueth))
 		pkt_info->start_offset = !!(buffer_descriptor &
 					    PRUETH_BD_START_FLAG_MASK);
 	else
@@ -1479,8 +1487,10 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 	/* OCMC RAM is not cached and read order is not important */
 	void *ocmc_ram = (__force void *)emac->prueth->mem[PRUETH_MEM_OCMC].va;
 	unsigned int actual_pkt_len;
+	u16 start_offset = 0;
 
-	u16 start_offset = (pkt_info.start_offset ? HSR_TAG_SIZE : 0);
+	if (PRUETH_HAS_HSR(prueth))
+		start_offset = (pkt_info.start_offset ? HSR_TAG_SIZE : 0);
 
 	/* the PRU firmware deals mostly in pointers already
 	 * offset into ram, we would like to deal in indexes
@@ -1578,6 +1588,9 @@ static int emac_rx_packet(struct prueth_emac *emac, u16 *bd_rd_ptr,
 					  &prueth->nt_lock);
 		}
 	}
+
+	if (PRUETH_HAS_RED(prueth) && pkt_info.start_offset)
+		pkt_info.length -= HSR_TAG_SIZE;
 
 	if (!pkt_info.sv_frame) {
 		skb_put(skb, pkt_info.length);
