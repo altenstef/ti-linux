@@ -1246,7 +1246,8 @@ static int kserdes_wait_link_up(struct kserdes_config *sc,
 		for_each_enable_lane(sc, i) {
 			if (!(*lanes_up_mask & BIT(i))) {
 				dev_dbg(sc->dev,
-					"Detected lane %d down while waiting link up\n", i);
+					"Lane %d down when waiting link up\n",
+					 i);
 			}
 		}
 
