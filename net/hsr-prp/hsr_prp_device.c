@@ -305,6 +305,7 @@ static void send_supervision_frame(struct hsr_prp_port *master,
 		goto out;
 
 	skb_reset_mac_header(skb);
+	skb_reset_network_header(skb);
 	if (prot_ver == HSR_V1) {
 		hsr_tag = (typeof(hsr_tag))skb_put(skb,
 						   sizeof(struct hsr_tag));
