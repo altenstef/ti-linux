@@ -1369,6 +1369,7 @@ static void cpts_tmr_poll(struct cpts *cpts, bool cpts_poll)
 			ts_val = (ts_offset >= 50000000UL) ?
 				-(100000000UL - ts_offset) :
 				(ts_offset);
+			ts_val -= cpts->pps_offset;
 
 			/* restore the timer period to 100ms */
 			WRITE_TLDR(cpts->odt, tmr_reload_cnt);
