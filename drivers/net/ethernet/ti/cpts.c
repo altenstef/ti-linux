@@ -444,6 +444,8 @@ static int cpts_pps_enable(struct cpts *cpts, int on)
 	if (!on)
 		return 0;
 
+	gpio_set_value(cpts->pps_enable_gpio, 1);
+
 	if (cpts->ref_enable == -1) {
 		cpts_pps_start(cpts);
 		cpts_tmr_poll(cpts, false);
@@ -518,6 +520,7 @@ static void cpts_pps_schedule(struct cpts *cpts)
 			cpts->pps_enable = -1;
 			pinctrl_select_state(cpts->pins,
 					     cpts->pin_state_pwm_off);
+			gpio_set_value(cpts->pps_enable_gpio, 0);
 		}
 
 		if (!cpts->ref_enable) {
@@ -891,6 +894,7 @@ static int cpts_of_1pps_parse(struct cpts *cpts, struct device_node *node)
 {
 	struct device_node *np = NULL;
 	struct device_node *np2 = NULL;
+	int gpio, ret;
 
 	np = of_parse_phandle(node, "timers", 0);
 	if (!np) {
@@ -978,6 +982,36 @@ static int cpts_of_1pps_parse(struct cpts *cpts, struct device_node *node)
 			PTR_ERR(cpts->pin_state_latch_off));
 		return PTR_ERR(cpts->pin_state_latch_off);
 	}
+
+	gpio = of_get_named_gpio(node, "pps-enable-gpios", 0);
+	if (!gpio_is_valid(gpio)) {
+		dev_err(cpts->dev, "failed to parse pps-enable gpio\n");
+		return gpio;
+	}
+
+	ret = devm_gpio_request(cpts->dev, gpio, "pps-enable-ctrl");
+	if (ret) {
+		dev_err(cpts->dev, "failed to acquire pps-enable gpio\n");
+		return ret;
+	}
+	cpts->pps_enable_gpio = gpio;
+	gpio_direction_output(gpio, 0);
+
+	gpio = of_get_named_gpio(node, "ref-enable-gpios", 0);
+	if (!gpio_is_valid(gpio)) {
+		dev_err(cpts->dev, "failed to parse ref-enable gpio\n");
+		devm_gpio_free(cpts->dev, cpts->pps_enable_gpio);
+		return gpio;
+	}
+
+	ret = devm_gpio_request(cpts->dev, gpio, "ref-enable-ctrl");
+	if (ret) {
+		dev_err(cpts->dev, "failed to acquire ref-enable gpio\n");
+		devm_gpio_free(cpts->dev, cpts->pps_enable_gpio);
+		return ret;
+	}
+	cpts->ref_enable_gpio = gpio;
+	gpio_direction_output(gpio, 0);
 
 	return 0;
 }
@@ -1126,6 +1160,7 @@ void cpts_release(struct cpts *cpts)
 	}
 
 #endif
+
 	if (cpts->pps_kworker) {
 		kthread_cancel_delayed_work_sync(&cpts->pps_work);
 		kthread_destroy_worker(cpts->pps_kworker);
@@ -1260,23 +1295,31 @@ static void cpts_tmr_init(struct cpts *cpts)
 static void inline cpts_turn_on_off_1pps_output(struct cpts *cpts, u64 ts)
 {
 	if (ts > 905000000) {
-		if (cpts->pps_enable == 1)
+		if (cpts->pps_enable == 1) {
 			pinctrl_select_state(cpts->pins,
 					     cpts->pin_state_pwm_on);
+			gpio_set_value(cpts->pps_enable_gpio, 0);
+		}
 
-		if (cpts->ref_enable == 1)
+		if (cpts->ref_enable == 1) {
 			pinctrl_select_state(cpts->pins,
 					     cpts->pin_state_ref_on);
+			gpio_set_value(cpts->ref_enable_gpio, 1);
+		}
 
 		pr_debug("1pps on at %llu\n", ts);
 	} else if ((ts < 100000000) && (ts >= 5000000)) {
-		if (cpts->pps_enable == 1)
+		if (cpts->pps_enable == 1) {
 			pinctrl_select_state(cpts->pins,
 					     cpts->pin_state_pwm_off);
+			gpio_set_value(cpts->pps_enable_gpio, 1);
+		}
 
-		if (cpts->ref_enable == 1)
+		if (cpts->ref_enable == 1) {
 			pinctrl_select_state(cpts->pins,
 					     cpts->pin_state_ref_off);
+			gpio_set_value(cpts->ref_enable_gpio, 0);
+		}
 	}
 }
 
