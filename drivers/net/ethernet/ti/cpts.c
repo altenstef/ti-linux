@@ -821,7 +821,7 @@ int cpts_register(struct cpts *cpts)
 		     HW4_TS_PUSH_EN, control);
 
 	if (cpts->use_1pps)
-		cpts->bc_clkid = ptp_bc_clock_register();
+		cpts->bc_clkid = ptp_bc_clock_register(PTP_BC_CLOCK_TYPE_GMAC);
 
 	pr_info("cpts ptp bc clkid %d\n", cpts->bc_clkid);
 	return 0;

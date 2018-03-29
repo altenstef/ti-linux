@@ -12,7 +12,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <linux/gpio.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 
 #include "ptp_bc.h"
@@ -24,6 +28,10 @@ static unsigned int bc_clocks_registered;
 static u32 bc_clk_sync_enabled;
 static spinlock_t bc_sync_lock; /* protects bc var */
 static bool ptp_bc_initialized;
+static int clock_type[MAX_CLKS];
+static int bc_clk_pps_mux_sel0_gpio;
+static int bc_clk_pps_mux_sel1_gpio;
+
 
 static inline int bc_clock_is_registered(int clkid)
 {
@@ -50,6 +58,42 @@ static void ptp_bc_free_clk_id(int clkid)
 		bc_clocks_registered &= ~BIT(clkid);
 }
 
+static void ptp_bc_clock_pps_mux_reset(void)
+{
+	gpio_set_value(bc_clk_pps_mux_sel0_gpio, 0);
+	gpio_set_value(bc_clk_pps_mux_sel1_gpio, 0);
+}
+
+static void ptp_bc_clock_pps_mux_sel(int clkid)
+{
+	if (clkid < 0 || clkid >= MAX_CLKS) {
+		pr_err("ptp_bc_clock_pps_mux_sel: invalid clkid: %d\n", clkid);
+		return;
+	}
+
+	switch (clock_type[clkid]) {
+	case PTP_BC_CLOCK_TYPE_GMAC:
+		gpio_set_value(bc_clk_pps_mux_sel0_gpio, 0);
+		gpio_set_value(bc_clk_pps_mux_sel1_gpio, 0);
+		break;
+
+	case PTP_BC_CLOCK_TYPE_PRUICSS1:
+		gpio_set_value(bc_clk_pps_mux_sel0_gpio, 1);
+		gpio_set_value(bc_clk_pps_mux_sel1_gpio, 0);
+		break;
+
+	case PTP_BC_CLOCK_TYPE_PRUICSS2:
+		gpio_set_value(bc_clk_pps_mux_sel0_gpio, 0);
+		gpio_set_value(bc_clk_pps_mux_sel1_gpio, 1);
+		break;
+
+	default:
+		pr_err("ptp_bc_clock_pps_mux_sel(%d): invalid type: %d\n",
+		       clkid, clock_type[clkid]);
+		break;
+	}
+}
+
 bool ptp_bc_clock_sync_enable(int clkid, int enable)
 {
 	unsigned long flags;
@@ -74,6 +118,7 @@ bool ptp_bc_clock_sync_enable(int clkid, int enable)
 			allow = false;
 		} else {
 			/* request to enable and none is enabled */
+			ptp_bc_clock_pps_mux_sel(clkid);
 			bc_clk_sync_enabled |= BIT(clkid);
 			allow = true;
 		}
@@ -81,6 +126,9 @@ bool ptp_bc_clock_sync_enable(int clkid, int enable)
 		bc_clk_sync_enabled &= ~BIT(clkid);
 		allow = true;
 	}
+
+	if (!bc_clk_sync_enabled)
+		ptp_bc_clock_pps_mux_reset();
 
 	spin_unlock_irqrestore(&bc_sync_lock, flags);
 
@@ -94,13 +142,13 @@ bool ptp_bc_clock_sync_enable(int clkid, int enable)
 }
 EXPORT_SYMBOL_GPL(ptp_bc_clock_sync_enable);
 
-int ptp_bc_clock_register(void)
+int ptp_bc_clock_register(int clocktype)
 {
 	unsigned long flags;
 	int id = -1;
 
 	if (!ptp_bc_initialized) {
-		pr_info("ptp_bc error: NOT initialized.\n");
+		pr_err("ptp_bc error: NOT initialized.\n");
 		return -1;
 	}
 
@@ -111,6 +159,8 @@ int ptp_bc_clock_register(void)
 	if (id < 0)
 		pr_err("ptp_bc register error: max clocks allowed %d\n",
 		       MAX_CLKS);
+
+	clock_type[id] = clocktype;
 
 	return id;
 }
@@ -131,9 +181,42 @@ EXPORT_SYMBOL_GPL(ptp_bc_clock_unregister);
 
 static int ptp_bc_probe(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
+	int ret, gpio;
+
 	spin_lock_init(&bc_sync_lock);
 	bc_clk_sync_enabled = 0;
 	bc_clocks_registered = 0;
+	gpio = of_get_named_gpio(np, "pps-sel0-gpios", 0);
+	if (!gpio_is_valid(bc_clk_pps_mux_sel0_gpio)) {
+		dev_err(&pdev->dev, "failed to parse pps-sel0 gpio\n");
+		return -EINVAL;
+	}
+
+	ret = devm_gpio_request(&pdev->dev, gpio, "pps-mux-sel0");
+	if (ret) {
+		dev_err(&pdev->dev, "failed to acquire pps-sel0 gpio\n");
+		return ret;
+	}
+	gpio_direction_output(gpio, 0);
+	bc_clk_pps_mux_sel0_gpio = gpio;
+
+	gpio = of_get_named_gpio(np, "pps-sel1-gpios", 0);
+	if (!gpio_is_valid(bc_clk_pps_mux_sel1_gpio)) {
+		dev_err(&pdev->dev, "failed to parse pps-sel1 gpio\n");
+		devm_gpio_free(&pdev->dev, bc_clk_pps_mux_sel0_gpio);
+		return -EINVAL;
+	}
+
+	ret = devm_gpio_request(&pdev->dev, gpio, "pps-mux-sel1");
+	if (ret) {
+		dev_err(&pdev->dev, "failed to acquire pps-sel1 gpio\n");
+		devm_gpio_free(&pdev->dev, bc_clk_pps_mux_sel0_gpio);
+		return ret;
+	}
+	gpio_direction_output(gpio, 0);
+	bc_clk_pps_mux_sel1_gpio = gpio;
+
 	ptp_bc_initialized  = true;
 	return 0;
 }
