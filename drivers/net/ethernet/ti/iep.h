@@ -130,6 +130,7 @@ struct iep {
 	u32 latch_enable;
 
 	int bc_clkid;
+	int pruss_id;
 	bool bc_pps_sync;
 	struct pinctrl *pins;
 	struct extts extts[MAX_EXTTS];

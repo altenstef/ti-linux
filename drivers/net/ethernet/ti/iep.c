@@ -897,7 +897,9 @@ int iep_register(struct iep *iep)
 	ptp_schedule_worker(iep->ptp_clock, iep->ov_check_period);
 
 	if (iep->bc_pps_sync)
-		iep->bc_clkid = ptp_bc_clock_register();
+		iep->bc_clkid = ptp_bc_clock_register(
+		(iep->pruss_id == 1) ? PTP_BC_CLOCK_TYPE_PRUICSS1 :
+				       PTP_BC_CLOCK_TYPE_PRUICSS2);
 
 	pr_info("iep ptp bc clkid %d\n", iep->bc_clkid);
 	return 0;
@@ -1020,6 +1022,7 @@ struct iep *iep_create(struct device *dev, void __iomem *sram,
 		iep->bc_pps_sync = false;
 
 	iep->bc_clkid = -1;
+	iep->pruss_id = pruss_id;
 
 	/* save cc.mult original value as it can be modified
 	 * by iep_adjfreq().
