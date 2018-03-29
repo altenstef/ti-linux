@@ -28,6 +28,8 @@
 #include <linux/device.h>
 #include <linux/list.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
 #include <linux/ptp_clock_kernel.h>
 #include <linux/skbuff.h>
 #include <linux/ptp_classify.h>
@@ -163,6 +165,9 @@ struct cpts {
 	struct pinctrl_state *pin_state_ref_on;
 	struct pinctrl_state *pin_state_latch_off;
 	struct pinctrl_state *pin_state_latch_on;
+
+	int pps_enable_gpio;
+	int ref_enable_gpio;
 
 	int pps_tmr_irqn;
 	int pps_latch_irqn;
