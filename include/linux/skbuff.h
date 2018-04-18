@@ -409,6 +409,14 @@ struct ubuf_info {
 	unsigned long desc;
 };
 
+struct skb_redundant_info {
+	__u8  io_port;     /* tx/rx port of the skb */
+	__u8  pathid;      /* pathid in tag */
+	__u16 ethertype;   /* ethertype in tag */
+	__u16 lsdu_size;   /* lsdu size in tag */
+	__u16 seqnr;       /* seqnr in tag */
+};
+
 /* This data is invariant across clones and lives at
  * the end of the header data, ie. at skb->end.
  */
@@ -421,6 +429,7 @@ struct skb_shared_info {
 	unsigned short  gso_type;
 	struct sk_buff	*frag_list;
 	struct skb_shared_hwtstamps hwtstamps;
+	struct skb_redundant_info redinfo;
 	u32		tskey;
 	__be32          ip6_frag_id;
 
@@ -1216,6 +1225,23 @@ static inline unsigned int skb_end_offset(const struct sk_buff *skb)
 static inline struct skb_shared_hwtstamps *skb_hwtstamps(struct sk_buff *skb)
 {
 	return &skb_shinfo(skb)->hwtstamps;
+}
+
+#define PTP_MSG_IN      (0x3 << 6)
+#define PTP_EVT_OUT     (0x2 << 6)
+#define DIRECTED_TX     (0x1 << 6)
+#define PORT_B          BIT(1)
+#define PORT_A          BIT(0)
+
+#define REDINFO_T(skb)      (skb_redinfo(skb)->io_port & (0x3 << 6))
+#define REDINFO_PORTS(skb)  (skb_redinfo(skb)->io_port & 0x3)
+#define REDINFO_PATHID(skb) (skb_redinfo(skb)->pathid)
+#define REDINFO_SEQNR(skb)  (skb_redinfo(skb)->seqnr)
+#define REDINFO_LSDU_SIZE(skb)  (skb_redinfo(skb)->lsdu_size)
+
+static inline struct skb_redundant_info *skb_redinfo(struct sk_buff *skb)
+{
+	return &skb_shinfo(skb)->redinfo;
 }
 
 /**
