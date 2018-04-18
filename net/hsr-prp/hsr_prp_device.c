@@ -17,11 +17,18 @@
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/pkt_sched.h>
+#include <linux/net_tstamp.h>
 #include "hsr_prp_device.h"
 #include "hsr_prp_slave.h"
 #include "hsr_prp_framereg.h"
 #include "hsr_prp_main.h"
 #include "hsr_prp_forward.h"
+
+static inline bool is_slave_port(struct hsr_prp_port *p)
+{
+	return (p->type == HSR_PRP_PT_SLAVE_A) ||
+	       (p->type == HSR_PRP_PT_SLAVE_B);
+}
 
 static bool is_admin_up(struct net_device *dev)
 {
@@ -517,6 +524,32 @@ static int hsr_prp_add_del_vid(struct net_device *dev,
 	return ret;
 }
 
+static int hsr_prp_dev_ioctl(struct net_device *hsr_prp_dev,
+			     struct ifreq *req, int cmd)
+{
+	struct hsr_prp_priv *priv = netdev_priv(hsr_prp_dev);
+	struct hsr_prp_port *port;
+	const struct net_device_ops *ops;
+	int ret = -1;
+
+	if (cmd != SIOCSHWTSTAMP && cmd != SIOCGHWTSTAMP)
+		return -ENOTSUPP;
+
+	hsr_prp_for_each_port(priv, port) {
+		if (is_slave_port(port)) {
+			ops = port->dev->netdev_ops;
+			if (ops && ops->ndo_do_ioctl) {
+				ret = ops->ndo_do_ioctl(port->dev, req, cmd);
+
+				if ((cmd == SIOCGHWTSTAMP) || cmd < 0)
+					return ret;
+			}
+		}
+	}
+
+	return ret;
+}
+
 static int hsr_prp_ndo_vlan_rx_add_vid(struct net_device *dev,
 				       __be16 proto, u16 vid)
 {
@@ -552,6 +585,33 @@ static const struct net_device_ops hsr_prp_device_ops = {
 	.ndo_set_rx_mode = hsr_prp_ndo_set_rx_mode,
 	.ndo_vlan_rx_add_vid = hsr_prp_ndo_vlan_rx_add_vid,
 	.ndo_vlan_rx_kill_vid = hsr_prp_ndo_vlan_rx_kill_vid,
+	.ndo_do_ioctl = hsr_prp_dev_ioctl,
+};
+
+static int hsr_prp_get_ts_info(struct net_device *dev,
+			       struct ethtool_ts_info *info)
+{
+	struct hsr_prp_priv *priv = netdev_priv(dev);
+	struct hsr_prp_port *port;
+	const struct ethtool_ops *ops;
+	int ret = -1;
+
+	hsr_prp_for_each_port(priv, port) {
+		if (is_slave_port(port)) {
+			ops = port->dev->ethtool_ops;
+			if (ops && ops->get_ts_info) {
+				ret = ops->get_ts_info(port->dev, info);
+				return ret;
+			}
+		}
+	}
+
+	return -1;
+}
+
+static const struct ethtool_ops hsr_prp_ethtool_ops = {
+	.get_link = ethtool_op_get_link,
+	.get_ts_info = hsr_prp_get_ts_info,
 };
 
 static void hsr_prp_dev_setup(struct net_device *ndev, struct device_type *type)
@@ -561,6 +621,7 @@ static void hsr_prp_dev_setup(struct net_device *ndev, struct device_type *type)
 	ether_setup(ndev);
 	ndev->header_ops = &hsr_prp_header_ops;
 	ndev->netdev_ops = &hsr_prp_device_ops;
+	ndev->ethtool_ops = &hsr_prp_ethtool_ops;
 	SET_NETDEV_DEVTYPE(ndev, type);
 	ndev->priv_flags |= IFF_NO_QUEUE;
 
