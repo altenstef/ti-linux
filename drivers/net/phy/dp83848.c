@@ -46,6 +46,17 @@
 	 DP83848_MISR_SPD_INT_EN |	\
 	 DP83848_MISR_LINK_INT_EN)
 
+int dp83848_config_init(struct phy_device *phydev)
+{
+	int i = 0;
+	for(i = 0; i < 0x1F; i++)
+	{
+		printk("PHY %08x: %02x = %08x\n", phydev, i, phy_read(phydev, i));
+	}
+	
+	return genphy_config_init(phydev);
+}
+
 static int dp83848_ack_interrupt(struct phy_device *phydev)
 {
 	int err = phy_read(phydev, DP83848_MISR);
@@ -94,7 +105,7 @@ MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
 		.flags		= PHY_HAS_INTERRUPT,		\
 								\
 		.soft_reset	= genphy_soft_reset,		\
-		.config_init	= genphy_config_init,		\
+		.config_init	= dp83848_config_init,		\
 		.suspend	= genphy_suspend,		\
 		.resume		= genphy_resume,		\
 		.config_aneg	= genphy_config_aneg,		\
